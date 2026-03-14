@@ -14,7 +14,7 @@ export default async function AuthPage() {
 
   return (
     <main className="px-4 py-4 sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-7xl">
+       <div className="mx-auto max-w-7xl">
         <AuthEntry />
       </div>
     </main>
