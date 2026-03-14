@@ -1,26 +1,123 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f4ead3;
+  --foreground: #181614;
+  --panel-dark: rgba(17, 22, 34, 0.92);
+  --panel-dark-soft: rgba(24, 30, 45, 0.88);
+  --panel-light: rgba(255, 250, 239, 0.78);
+  --line-dark: rgba(255, 255, 255, 0.08);
+  --line-light: rgba(24, 22, 20, 0.08);
+  --muted-light: rgba(24, 22, 20, 0.58);
+  --muted-dark: rgba(255, 255, 255, 0.62);
+  --accent: #ffd54f;
+  --accent-soft: #79d2c0;
+  --accent-alt: #ff9f68;
+  --font-sans: var(--font-dm-sans);
+  --font-display: var(--font-sora);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-sans);
+  --font-display: var(--font-display);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 body {
-  background: var(--background);
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top left, rgba(255, 213, 79, 0.26), transparent 28%),
+    radial-gradient(circle at bottom right, rgba(121, 210, 192, 0.2), transparent 32%),
+    linear-gradient(135deg, #f8efdc 0%, #efe2c3 55%, #f7efdd 100%);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), sans-serif;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.18) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.14) 1px, transparent 1px);
+  background-size: 120px 120px;
+  opacity: 0.22;
+  pointer-events: none;
+}
+
+::selection {
+  background: rgba(255, 213, 79, 0.45);
+  color: #111;
+}
+
+@keyframes auth-splash-progress {
+  from {
+    width: 0%;
+  }
+
+  to {
+    width: 100%;
+  }
+}
+
+@layer components {
+  .panel-dark {
+    @apply rounded-[30px] border bg-[var(--panel-dark)] text-white shadow-[0_24px_80px_rgba(12,16,24,0.22)] backdrop-blur-xl;
+    border-color: var(--line-dark);
+  }
+
+  .panel-dark-soft {
+    @apply rounded-[26px] border bg-[var(--panel-dark-soft)] text-white shadow-[0_18px_52px_rgba(10,14,22,0.18)] backdrop-blur-xl;
+    border-color: var(--line-dark);
+  }
+
+  .panel-light {
+    @apply rounded-[30px] border bg-[var(--panel-light)] shadow-[0_18px_52px_rgba(129,110,68,0.08)] backdrop-blur-xl;
+    border-color: var(--line-light);
+  }
+
+  .eyebrow {
+    @apply inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.28em];
+  }
+
+  .field-dark {
+    @apply mt-2 w-full rounded-[18px] border px-4 py-3 text-sm text-white outline-none transition;
+    border-color: rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.04);
+  }
+
+  .field-dark::placeholder {
+    color: rgba(255, 255, 255, 0.35);
+  }
+
+  .field-dark:focus {
+    border-color: rgba(255, 213, 79, 0.6);
+    box-shadow: 0 0 0 3px rgba(255, 213, 79, 0.14);
+  }
+
+  .field-light {
+    @apply mt-2 w-full rounded-[18px] border px-4 py-3 text-sm outline-none transition;
+    border-color: rgba(24, 22, 20, 0.08);
+    background: rgba(255, 255, 255, 0.72);
+    color: #171717;
+  }
+
+  .field-light::placeholder {
+    color: rgba(24, 22, 20, 0.4);
+  }
+
+  .field-light:focus {
+    border-color: rgba(255, 159, 104, 0.5);
+    box-shadow: 0 0 0 3px rgba(255, 159, 104, 0.12);
+  }
 }
