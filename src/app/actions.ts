@@ -7,6 +7,7 @@ import { calculateNutritionTargets, calculateVolume, estimateWorkoutCalories } f
 import { demoProfile } from "@/lib/app-fixture";
 import { hasUsableDatabaseUrl, requirePrisma } from "@/lib/prisma";
 import { clearSession, createSession, requireCurrentViewer } from "@/lib/auth";
+import { ensureWorkoutTemplatesSeeded } from "@/lib/workout-template-bootstrap";
 
 type AuthActionResult = {
   success: boolean;
@@ -353,6 +354,8 @@ export async function saveOnboardingAction(formData: FormData) {
 
   const user = await requireSessionUser();
   const db = requirePrisma();
+
+  await ensureWorkoutTemplatesSeeded(db);
 
   await db.user.update({
     where: { id: user.id },

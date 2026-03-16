@@ -4,6 +4,7 @@ import { calculateNutritionTargets, calculateVolume, formatCompactNumber, format
 import { demoGoal, demoMeasurements, demoProfile, demoSessionBlueprints, demoWeeklyDigests } from "@/lib/app-fixture";
 import { hasUsableDatabaseUrl, requirePrisma } from "@/lib/prisma";
 import { workoutTemplates } from "@/lib/workout-templates";
+import { ensureWorkoutTemplatesSeeded } from "@/lib/workout-template-bootstrap";
 
 type RawExercise = {
   id: string;
@@ -378,7 +379,7 @@ async function buildDatabaseDataset(userId: string): Promise<RawDataset | null> 
       return null;
     }
 
-    const dayTemplates = await db.workoutDayTemplate.findMany({
+    let dayTemplates = await db.workoutDayTemplate.findMany({
       where: { splitType: user.splitPreference },
       orderBy: { order: "asc" },
       include: {
@@ -387,6 +388,20 @@ async function buildDatabaseDataset(userId: string): Promise<RawDataset | null> 
         },
       },
     });
+
+    if (dayTemplates.length === 0) {
+      await ensureWorkoutTemplatesSeeded(db);
+
+      dayTemplates = await db.workoutDayTemplate.findMany({
+        where: { splitType: user.splitPreference },
+        orderBy: { order: "asc" },
+        include: {
+          exercises: {
+            orderBy: { order: "asc" },
+          },
+        },
+      });
+    }
 
     const sessions = await db.workoutSession.findMany({
       where: { userId: user.id },
@@ -481,7 +496,19 @@ async function buildDatabaseDataset(userId: string): Promise<RawDataset | null> 
           notes: log.notes,
         })),
       })),
-      measurements: user.measurements.map((entry) => ({
+      measurements: (user.measurements.length
+        ? user.measurements
+        : [
+            {
+              recordedAt: new Date(),
+              weightKg: user.currentWeightKg,
+              waistCm: null,
+              armCm: null,
+              chestCm: null,
+              bodyFatPct: null,
+            },
+          ]
+      ).map((entry) => ({
         recordedAt: entry.recordedAt,
         weightKg: entry.weightKg,
         waistCm: entry.waistCm,
@@ -755,7 +782,11 @@ export async function getDashboardSnapshot({
   const viewer = await getCurrentViewer();
   const databaseDataset = viewer ? await buildDatabaseDataset(viewer.id) : null;
 
-  if (databaseDataset) {
+  if (
+    databaseDataset &&
+    databaseDataset.dayTemplates.length > 0 &&
+    databaseDataset.measurements.length > 0
+  ) {
     return buildSnapshot(databaseDataset, false);
   }
 
