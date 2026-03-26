@@ -50,9 +50,25 @@ def twaManifest = [
     orientation: 'portrait',
 ]
 
+def uploadKeystorePath = System.getenv('UPLOAD_KEYSTORE_PATH') ?: project.findProperty('UPLOAD_KEYSTORE_PATH')
+def uploadKeyAlias = System.getenv('UPLOAD_KEY_ALIAS') ?: project.findProperty('UPLOAD_KEY_ALIAS')
+def uploadKeystorePassword = System.getenv('UPLOAD_KEYSTORE_PASSWORD') ?: project.findProperty('UPLOAD_KEYSTORE_PASSWORD')
+def uploadKeyPassword = System.getenv('UPLOAD_KEY_PASSWORD') ?: project.findProperty('UPLOAD_KEY_PASSWORD')
+def hasReleaseSigning = [uploadKeystorePath, uploadKeyAlias, uploadKeystorePassword, uploadKeyPassword].every { it }
+
 android {
     compileSdkVersion 36
     namespace "com.ElithX.FitX"
+    signingConfigs {
+        release {
+            if (hasReleaseSigning) {
+                storeFile file(uploadKeystorePath)
+                storePassword uploadKeystorePassword
+                keyAlias uploadKeyAlias
+                keyPassword uploadKeyPassword
+            }
+        }
+    }
     defaultConfig {
         applicationId "com.ElithX.FitX"
         minSdkVersion 21
@@ -153,6 +169,9 @@ android {
     buildTypes {
         release {
             minifyEnabled true
+            if (hasReleaseSigning) {
+                signingConfig signingConfigs.release
+            }
         }
     }
     compileOptions {

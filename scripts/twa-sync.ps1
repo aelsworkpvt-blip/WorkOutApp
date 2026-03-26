@@ -83,7 +83,8 @@ function Rewrite-TwaManifestUrls {
   param(
     [string]$ManifestPath,
     [string]$BootstrapManifestUrl,
-    [string]$ProductionManifestUrl
+    [string]$ProductionManifestUrl,
+    [string]$ProductionAppUrl
   )
 
   if (-not (Test-Path $ManifestPath)) {
@@ -92,9 +93,10 @@ function Rewrite-TwaManifestUrls {
 
   $bootstrapUri = Get-AbsoluteUri -Value $BootstrapManifestUrl -Name "ManifestUrl"
   $productionUri = Get-AbsoluteUri -Value $ProductionManifestUrl -Name "NEXT_PUBLIC_APP_URL"
+  $productionAppUri = Get-AbsoluteUri -Value $ProductionAppUrl -Name "NEXT_PUBLIC_APP_URL"
 
   $productionOrigin = $productionUri.GetLeftPart([System.UriPartial]::Authority)
-  $productionAppUrl = $productionUri.AbsoluteUri.TrimEnd("/") + "/"
+  $normalizedProductionAppUrl = $productionAppUri.AbsoluteUri.TrimEnd("/") + "/"
 
   $manifest = Get-Content $ManifestPath -Raw | ConvertFrom-Json
   $changed = $false
@@ -109,8 +111,8 @@ function Rewrite-TwaManifestUrls {
     $changed = $true
   }
 
-  if ($manifest.fullScopeUrl -ne $productionAppUrl) {
-    $manifest.fullScopeUrl = $productionAppUrl
+  if ($manifest.fullScopeUrl -ne $normalizedProductionAppUrl) {
+    $manifest.fullScopeUrl = $normalizedProductionAppUrl
     $changed = $true
   }
 
@@ -237,7 +239,8 @@ $twaManifestPath = Join-Path `
 $rewroteManifestUrls = Rewrite-TwaManifestUrls `
   -ManifestPath $twaManifestPath `
   -BootstrapManifestUrl $ManifestUrl `
-  -ProductionManifestUrl $productionManifestUrl
+  -ProductionManifestUrl $productionManifestUrl `
+  -ProductionAppUrl $productionAppUri.AbsoluteUri
 
 if ($rewroteManifestUrls) {
   Push-Location $OutputDir
