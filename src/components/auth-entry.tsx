@@ -53,10 +53,14 @@ function AuthSplash() {
   );
 }
 
-export function AuthEntry() {
-  const [showSplash, setShowSplash] = useState(true);
+export function AuthEntry({ notice }: { notice?: string | null } = {}) {
+  const [showSplash, setShowSplash] = useState(!notice);
 
   useEffect(() => {
+    if (!showSplash) {
+      return;
+    }
+
     const timeout = window.setTimeout(() => {
       setShowSplash(false);
     }, SPLASH_DURATION_MS);
@@ -64,11 +68,11 @@ export function AuthEntry() {
     return () => {
       window.clearTimeout(timeout);
     };
-  }, []);
+  }, [showSplash]);
 
   if (showSplash) {
     return <AuthSplash />;
   }
 
-  return <AuthSection />;
+  return <AuthSection notice={notice} />;
 }

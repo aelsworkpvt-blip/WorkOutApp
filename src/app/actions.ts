@@ -14,6 +14,12 @@ type AuthActionResult = {
   error?: string;
 };
 
+type DeletionActionResult = {
+  success: boolean;
+  error?: string;
+  message?: string;
+};
+
 type ModeActionResult = {
   success: boolean;
   error?: string;
@@ -28,6 +34,15 @@ const signupSchema = z.object({
 const loginSchema = z.object({
   email: z.email(),
   password: z.string().min(8).max(72),
+});
+
+const deleteAccountSchema = z.object({
+  confirmation: z.email(),
+});
+
+const accountDeletionRequestSchema = z.object({
+  email: z.email(),
+  reason: z.string().trim().max(500).optional(),
 });
 
 const trainingModeSchema = z.object({
@@ -85,6 +100,11 @@ function requiredNumber(value: FormDataEntryValue | null) {
 
   const normalized = `${value}`.trim();
   return normalized ? Number(normalized) : Number.NaN;
+}
+
+function optionalString(value: FormDataEntryValue | null) {
+  const normalized = `${value ?? ""}`.trim();
+  return normalized || undefined;
 }
 
 function nullableNumber(value: FormDataEntryValue | null) {
@@ -145,7 +165,10 @@ async function requireSessionUser() {
     throw new Error("Account email missing.");
   }
 
-  return viewer;
+  return {
+    ...viewer,
+    email: viewer.email,
+  };
 }
 
 export async function signUpAction(formData: FormData): Promise<AuthActionResult> {
@@ -263,6 +286,115 @@ export async function loginAction(formData: FormData): Promise<AuthActionResult>
 export async function logoutAction() {
   await clearSession();
   revalidatePath("/");
+}
+
+export async function deleteAccountAction(
+  formData: FormData,
+): Promise<DeletionActionResult> {
+  if (!hasUsableDatabaseUrl) {
+    return {
+      success: false,
+      error: "Database is not configured.",
+    };
+  }
+
+  const viewer = await requireSessionUser();
+  const parsed = deleteAccountSchema.safeParse({
+    confirmation: requiredString(formData.get("confirmation")).toLowerCase(),
+  });
+
+  if (!parsed.success || parsed.data.confirmation !== viewer.email.toLowerCase()) {
+    return {
+      success: false,
+      error: "Type your account email exactly to confirm deletion.",
+    };
+  }
+
+  try {
+    const db = requirePrisma();
+    await db.$transaction(async (tx) => {
+      await tx.accountDeletionRequest.create({
+        data: {
+          email: viewer.email,
+          userId: viewer.id,
+          reason: "User requested immediate in-app account deletion.",
+          status: "COMPLETED",
+          resolvedAt: new Date(),
+        },
+      });
+
+      await tx.user.delete({
+        where: { id: viewer.id },
+      });
+    });
+
+    await clearSession();
+    revalidatePath("/", "layout");
+    return { success: true };
+  } catch (error) {
+    console.error("Unable to delete account", error);
+    return {
+      success: false,
+      error: "Unable to delete this account right now.",
+    };
+  }
+}
+
+export async function requestAccountDeletionAction(
+  formData: FormData,
+): Promise<DeletionActionResult> {
+  if (!hasUsableDatabaseUrl) {
+    return {
+      success: false,
+      error: "Database is not configured.",
+    };
+  }
+
+  const parsed = accountDeletionRequestSchema.safeParse({
+    email: requiredString(formData.get("email")).toLowerCase(),
+    reason: optionalString(formData.get("reason")),
+  });
+
+  if (!parsed.success) {
+    return {
+      success: false,
+      error: "Enter a valid email address before sending the request.",
+    };
+  }
+
+  try {
+    const db = requirePrisma();
+    const existingPendingRequest = await db.accountDeletionRequest.findFirst({
+      where: {
+        email: parsed.data.email,
+        status: "PENDING",
+      },
+      orderBy: {
+        requestedAt: "desc",
+      },
+    });
+
+    if (!existingPendingRequest) {
+      await db.accountDeletionRequest.create({
+        data: {
+          email: parsed.data.email,
+          reason: parsed.data.reason,
+        },
+      });
+    }
+
+    return {
+      success: true,
+      message:
+        "If an account matches that email address, the deletion request has been received. If you can still sign in, you can also delete instantly from the profile page.",
+    };
+  } catch (error) {
+    console.error("Unable to record account deletion request", error);
+    return {
+      success: false,
+      error: "Unable to record that request right now.",
+    };
+  }
 }
 
 export async function dismissWelcomeCarouselAction() {

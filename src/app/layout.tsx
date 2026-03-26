@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { DM_Sans, Sora } from "next/font/google";
 import { PwaRegister } from "@/components/pwa-register";
+import { getAppUrl } from "@/lib/env";
 import "./globals.css";
 
 const sora = Sora({
@@ -15,7 +16,7 @@ const dmSans = DM_Sans({
   weight: ["400", "500", "700"],
 });
 
-const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+const appUrl = getAppUrl();
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -25,7 +26,7 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  metadataBase: new URL(appUrl),
+  metadataBase: appUrl,
   applicationName: "Forge Motion",
   title: {
     default: "Forge Motion",

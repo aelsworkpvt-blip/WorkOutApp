@@ -1,14 +1,13 @@
 import { cookies } from "next/headers";
 import { SignJWT, jwtVerify } from "jose";
+import { getAuthSecretValue } from "@/lib/env";
 import { requirePrisma } from "@/lib/prisma";
 
 const SESSION_COOKIE = "forge-motion-session";
 const SESSION_DURATION_SECONDS = 60 * 60 * 24 * 7;
 
 function getAuthSecret() {
-  return new TextEncoder().encode(
-    process.env.AUTH_SECRET ?? "forge-motion-dev-secret-change-me",
-  );
+  return new TextEncoder().encode(getAuthSecretValue());
 }
 
 type SessionPayload = {

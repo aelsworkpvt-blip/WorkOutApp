@@ -1,0 +1,66 @@
+{
+  "packageId": "com.ElithX.FitX",
+  "host": "workoutapp-dusky.vercel.app",
+  "name": "Forge Motion",
+  "launcherName": "Forge Motion",
+  "display": "standalone",
+  "themeColor": "#111622",
+  "themeColorDark": "#000000",
+  "navigationColor": "#000000",
+  "navigationColorDark": "#000000",
+  "navigationDividerColor": "#000000",
+  "navigationDividerColorDark": "#000000",
+  "backgroundColor": "#111622",
+  "enableNotifications": true,
+  "startUrl": "/",
+  "iconUrl": "https://workoutapp-dusky.vercel.app/icon-512.png",
+  "maskableIconUrl": "https://workoutapp-dusky.vercel.app/icon-512-maskable.png",
+  "splashScreenFadeOutDuration": 300,
+  "signingKey": {
+    "path": "C:\\GymApp\\WorkOutAppFE\\android\\android.keystore",
+    "alias": "android"
+  },
+  "appVersionName": "2",
+  "appVersionCode": 2,
+  "shortcuts": [
+    {
+      "name": "Dashboard",
+      "shortName": "Dashboard",
+      "url": "https://workoutapp-dusky.vercel.app/dashboard",
+      "chosenIconUrl": "https://workoutapp-dusky.vercel.app/icon-192.png"
+    },
+    {
+      "name": "Workouts",
+      "shortName": "Workouts",
+      "url": "https://workoutapp-dusky.vercel.app/workouts",
+      "chosenIconUrl": "https://workoutapp-dusky.vercel.app/icon-192.png"
+    },
+    {
+      "name": "Weekly Progress",
+      "shortName": "Progress",
+      "url": "https://workoutapp-dusky.vercel.app/progress",
+      "chosenIconUrl": "https://workoutapp-dusky.vercel.app/icon-192.png"
+    }
+  ],
+  "generatorApp": "bubblewrap-cli",
+  "webManifestUrl": "https://workoutapp-dusky.vercel.app/manifest.webmanifest",
+  "fallbackType": "customtabs",
+  "features": {},
+  "alphaDependencies": {
+    "enabled": false
+  },
+  "enableSiteSettingsShortcut": true,
+  "isChromeOSOnly": false,
+  "isMetaQuest": false,
+  "fullScopeUrl": "https://workoutapp-dusky.vercel.app/",
+  "minSdkVersion": 21,
+  "orientation": "portrait",
+  "fingerprints": [],
+  "additionalTrustedOrigins": [],
+  "retainedBundles": [],
+  "protocolHandlers": [],
+  "fileHandlers": [],
+  "launchHandlerClientMode": "",
+  "displayOverride": [],
+  "appVersion": "2"
+}

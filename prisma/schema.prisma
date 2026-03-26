@@ -28,6 +28,19 @@ model User {
   workoutSessions    WorkoutSession[]
 }
 
+model AccountDeletionRequest {
+  id          String                       @id @default(cuid())
+  email       String
+  userId      String?
+  reason      String?
+  status      AccountDeletionRequestStatus @default(PENDING)
+  requestedAt DateTime                     @default(now())
+  resolvedAt  DateTime?
+
+  @@index([email, requestedAt])
+  @@index([status, requestedAt])
+}
+
 model UserGoal {
   id                  String          @id @default(cuid())
   userId              String          @unique
@@ -170,6 +183,12 @@ enum GoalType {
   MUSCLE_GAIN
   MAINTENANCE
   PERFORMANCE
+}
+
+enum AccountDeletionRequestStatus {
+  PENDING
+  COMPLETED
+  REJECTED
 }
 
 enum TrainingMode {

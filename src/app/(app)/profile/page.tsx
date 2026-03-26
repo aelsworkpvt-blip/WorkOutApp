@@ -1,6 +1,9 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Flame, LogOut, Scale, Target, UserRound } from "lucide-react";
+import { Flame, LogOut, Scale, ShieldCheck, Target, UserRound } from "lucide-react";
 import { logoutAction } from "@/app/actions";
+import { DeleteAccountCard } from "@/components/delete-account-card";
+import { LegalLinks } from "@/components/legal-links";
 import { SectionHead } from "@/components/section-head";
 import { getDashboardSnapshot } from "@/lib/data";
 import { requireAppViewer } from "@/lib/route-helpers";
@@ -54,6 +57,19 @@ export default async function ProfilePage() {
             </div>
           </div>
 
+          <div className="mt-6 rounded-[24px] border border-white/8 bg-white/4 p-5">
+            <div className="flex items-center gap-2 text-sm text-white/55">
+              <ShieldCheck className="h-4 w-4 text-[#79d2c0]" />
+              Legal and data controls
+            </div>
+            <p className="mt-3 text-sm leading-7 text-white/68">
+              Privacy policy and account deletion are now linked from inside the
+              app and from the public web, so the account area is actually ready
+              for store review.
+            </p>
+            <LegalLinks className="mt-4" inverted />
+          </div>
+
           <form action={logoutAction} className="mt-6">
             <button
               type="submit"
@@ -63,6 +79,8 @@ export default async function ProfilePage() {
               Logout
             </button>
           </form>
+
+          {viewer.email ? <DeleteAccountCard email={viewer.email} /> : null}
         </div>
 
         <div className="panel-light p-6 sm:p-8">
@@ -113,6 +131,20 @@ export default async function ProfilePage() {
               Dashboard stays focused on overview, workouts stay focused on training,
               weekly stays focused on progress, and profile handles account actions like logout.
             </p>
+            <div className="mt-5 flex flex-wrap gap-3">
+              <Link
+                href="/privacy"
+                className="rounded-full bg-[#171717] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#2b2b2b]"
+              >
+                Privacy policy
+              </Link>
+              <Link
+                href="/account/delete"
+                className="rounded-full border border-black/8 bg-white px-4 py-2 text-sm font-semibold text-[#171717] transition hover:bg-white/90"
+              >
+                Public deletion page
+              </Link>
+            </div>
           </div>
         </div>
       </section>

@@ -3,8 +3,9 @@
 import { startTransition, useState } from "react";
 import { useRouter } from "next/navigation";
 import { loginAction, signUpAction } from "@/app/actions";
+import { LegalLinks } from "@/components/legal-links";
 
-export function AuthSection() {
+export function AuthSection({ notice }: { notice?: string | null } = {}) {
   const router = useRouter();
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [error, setError] = useState<string | null>(null);
@@ -40,6 +41,12 @@ export function AuthSection() {
           Once you sign in, the app takes you into mode selection, split setup,
           onboarding, and then your dashboard.
         </p>
+
+        {notice ? (
+          <div className="mt-5 rounded-[20px] border border-[#9ddbcf] bg-[#eefbf7] px-4 py-3 text-sm text-[#176b57]">
+            {notice}
+          </div>
+        ) : null}
 
         <div className="flex gap-3">
           {[
@@ -105,6 +112,8 @@ export function AuthSection() {
             {mode === "login" ? "Login" : "Create account"}
           </button>
         </form>
+
+        <LegalLinks className="mt-6" />
       </div>
     </section>
   );

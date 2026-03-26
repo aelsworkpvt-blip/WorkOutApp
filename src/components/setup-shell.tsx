@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { logoutAction } from "@/app/actions";
+import { LegalLinks } from "@/components/legal-links";
 import type { ViewerState } from "@/lib/data";
 
 export function SetupShell({
@@ -13,7 +14,7 @@ export function SetupShell({
     <main className="px-4 py-4 pb-10 sm:px-6 lg:px-8">
       <div className="mx-auto flex max-w-7xl flex-col gap-6">
         <div className="panel-light flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
+          <div className="flex-1">
             <Link
               href="/split"
               className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--muted-light)]/78"
@@ -23,6 +24,7 @@ export function SetupShell({
             <p className="mt-2 text-lg font-[family:var(--font-sora)] text-[#171717]">
               Setup your split before training starts
             </p>
+            <LegalLinks className="mt-4" />
           </div>
 
           <div className="flex flex-wrap items-center gap-3">

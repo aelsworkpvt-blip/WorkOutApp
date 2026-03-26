@@ -12,7 +12,10 @@
     "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts",
     "db:studio": "prisma studio",
-    "pwa:icons": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/generate-pwa-icons.ps1"
+    "pwa:icons": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/generate-pwa-icons.ps1",
+    "android:twa:sync": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/twa-sync.ps1",
+    "android:gradle": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/android-gradle.ps1",
+    "android:assetlinks:print": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/print-assetlinks.ps1"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
