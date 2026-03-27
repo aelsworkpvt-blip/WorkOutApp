@@ -1,10 +1,14 @@
 import { format, startOfWeek, subDays } from "date-fns";
+import { cache } from "react";
+import type { PrismaClient } from "@prisma/client";
 import { getCurrentViewer } from "@/lib/auth";
 import { calculateNutritionTargets, calculateVolume, formatCompactNumber, formatSigned, getProgressSuggestion } from "@/lib/calculations";
 import { demoGoal, demoMeasurements, demoProfile, demoSessionBlueprints, demoWeeklyDigests } from "@/lib/app-fixture";
 import { hasUsableDatabaseUrl, requirePrisma } from "@/lib/prisma";
 import { workoutTemplates } from "@/lib/workout-templates";
 import { ensureWorkoutTemplatesSeeded } from "@/lib/workout-template-bootstrap";
+
+const LIVE_GOAL_TYPE = "MUSCLE_GAIN" as const;
 
 type RawExercise = {
   id: string;
@@ -14,6 +18,9 @@ type RawExercise = {
   equipment: string;
   instructions: string;
   progressCue: string;
+  demoVideoLabel: string | null;
+  demoVideoSource: string | null;
+  demoVideoUrl: string | null;
   targetSets: number;
   repRangeMin: number;
   repRangeMax: number;
@@ -122,7 +129,7 @@ export type OnboardingDefaults = {
   gender: "MALE" | "FEMALE" | "OTHER";
   heightCm: number;
   weightKg: number;
-  goalType: "FAT_LOSS" | "MUSCLE_GAIN" | "MAINTENANCE" | "PERFORMANCE";
+  goalType: typeof LIVE_GOAL_TYPE;
   activityLevel: "LIGHT" | "MODERATE" | "HIGH" | "ATHLETE";
   experienceLevel: "BEGINNER" | "INTERMEDIATE" | "ADVANCED";
   targetWeightKg: number | null;
@@ -156,6 +163,10 @@ export type DashboardSnapshot = {
       name: string;
       equipment: string;
       muscleGroup: string;
+      instructions: string;
+      demoVideoLabel: string | null;
+      demoVideoSource: string | null;
+      demoVideoUrl: string | null;
       targetSets: number;
       repRangeLabel: string;
       restSeconds: number;
@@ -186,6 +197,10 @@ export type DashboardSnapshot = {
       name: string;
       equipment: string;
       muscleGroup: string;
+      instructions: string;
+      demoVideoLabel: string | null;
+      demoVideoSource: string | null;
+      demoVideoUrl: string | null;
       targetSets: number;
       repRangeLabel: string;
       restSeconds: number;
@@ -245,6 +260,35 @@ export type DashboardSnapshot = {
   insights: string[];
 };
 
+type PlanDaySnapshot = DashboardSnapshot["planDays"][number];
+type WorkoutPlanSnapshot = DashboardSnapshot["workoutPlans"][number];
+type CompletionSnapshot = DashboardSnapshot["completion"];
+type RecentMeasurementSnapshot = DashboardSnapshot["recentMeasurements"][number];
+type StrengthTrendSnapshot = DashboardSnapshot["strengthTrend"][number];
+type RecentSessionSnapshot = DashboardSnapshot["recentSessions"][number];
+type WeeklyDigestSnapshot = DashboardSnapshot["weeklyDigest"];
+
+export type WorkoutPageData = Pick<
+  DashboardSnapshot,
+  "planDays" | "workoutPlans" | "todayPlan" | "weeklyDigest" | "recentSessions"
+>;
+
+export type ProgressPageData = Pick<
+  DashboardSnapshot,
+  "weeklyDigest" | "recentMeasurements" | "strengthTrend"
+> & {
+  profile: Pick<DashboardSnapshot["profile"], "currentWeightKg">;
+};
+
+export type ProfilePageData = {
+  profile: Pick<
+    DashboardSnapshot["profile"],
+    "name" | "currentWeightKg" | "splitPreference"
+  >;
+  nutrition: Pick<DashboardSnapshot["nutrition"], "calories">;
+  completion: Pick<DashboardSnapshot["completion"], "workoutTarget">;
+};
+
 function buildDemoDataset(): RawDataset {
   const selectedTemplates = workoutTemplates[demoProfile.splitPreference].map(
     (day, dayIndex) => ({
@@ -264,6 +308,9 @@ function buildDemoDataset(): RawDataset {
         equipment: exercise.equipment,
         instructions: exercise.instructions,
         progressCue: exercise.progressCue,
+        demoVideoLabel: exercise.demoVideoLabel,
+        demoVideoSource: exercise.demoVideoSource,
+        demoVideoUrl: exercise.demoVideoUrl,
         targetSets: exercise.targetSets,
         repRangeMin: exercise.repRangeMin,
         repRangeMax: exercise.repRangeMax,
@@ -344,7 +391,24 @@ function buildDemoDataset(): RawDataset {
   };
 }
 
-async function buildDatabaseDataset(userId: string): Promise<RawDataset | null> {
+async function loadDayTemplates(
+  db: PrismaClient,
+  userSplitPreference: RawDataset["user"]["splitPreference"],
+) {
+  return db.workoutDayTemplate.findMany({
+    where: { splitType: userSplitPreference },
+    orderBy: { order: "asc" },
+    include: {
+      exercises: {
+        orderBy: { order: "asc" },
+      },
+    },
+  });
+}
+
+const buildDatabaseDataset = cache(async function buildDatabaseDataset(
+  userId: string,
+): Promise<RawDataset | null> {
   if (!hasUsableDatabaseUrl) {
     return null;
   }
@@ -379,31 +443,7 @@ async function buildDatabaseDataset(userId: string): Promise<RawDataset | null> 
       return null;
     }
 
-    let dayTemplates = await db.workoutDayTemplate.findMany({
-      where: { splitType: user.splitPreference },
-      orderBy: { order: "asc" },
-      include: {
-        exercises: {
-          orderBy: { order: "asc" },
-        },
-      },
-    });
-
-    if (dayTemplates.length === 0) {
-      await ensureWorkoutTemplatesSeeded(db);
-
-      dayTemplates = await db.workoutDayTemplate.findMany({
-        where: { splitType: user.splitPreference },
-        orderBy: { order: "asc" },
-        include: {
-          exercises: {
-            orderBy: { order: "asc" },
-          },
-        },
-      });
-    }
-
-    const sessions = await db.workoutSession.findMany({
+    const sessionsPromise = db.workoutSession.findMany({
       where: { userId: user.id },
       orderBy: { performedAt: "asc" },
       include: {
@@ -416,16 +456,27 @@ async function buildDatabaseDataset(userId: string): Promise<RawDataset | null> 
       },
     });
 
+    let dayTemplates = await loadDayTemplates(db, user.splitPreference);
+
+    // Seed templates only for empty databases instead of writing on every page read.
+    if (dayTemplates.length === 0) {
+      await ensureWorkoutTemplatesSeeded(db);
+      dayTemplates = await loadDayTemplates(db, user.splitPreference);
+    }
+
+    const sessions = await sessionsPromise;
+
     const nutrition =
-      user.nutritionTarget ??
-      calculateNutritionTargets({
-        age: user.age,
-        gender: user.gender,
-        heightCm: user.heightCm,
-        weightKg: user.currentWeightKg,
-        activityLevel: user.goal.activityLevel,
-        goalType: user.goal.goalType,
-      });
+      user.goal.goalType === LIVE_GOAL_TYPE && user.nutritionTarget
+        ? user.nutritionTarget
+        : calculateNutritionTargets({
+            age: user.age,
+            gender: user.gender,
+            heightCm: user.heightCm,
+            weightKg: user.currentWeightKg,
+            activityLevel: user.goal.activityLevel,
+            goalType: LIVE_GOAL_TYPE,
+          });
 
     return {
       user: {
@@ -438,7 +489,7 @@ async function buildDatabaseDataset(userId: string): Promise<RawDataset | null> 
         splitPreference: user.splitPreference,
       },
       goal: {
-        goalType: user.goal.goalType,
+        goalType: LIVE_GOAL_TYPE,
         activityLevel: user.goal.activityLevel,
         experienceLevel: user.goal.experienceLevel,
         targetWeightKg: user.goal.targetWeightKg,
@@ -470,6 +521,9 @@ async function buildDatabaseDataset(userId: string): Promise<RawDataset | null> 
           equipment: exercise.equipment,
           instructions: exercise.instructions,
           progressCue: exercise.progressCue,
+          demoVideoLabel: exercise.demoVideoLabel,
+          demoVideoSource: exercise.demoVideoSource,
+          demoVideoUrl: exercise.demoVideoUrl,
           targetSets: exercise.targetSets,
           repRangeMin: exercise.repRangeMin,
           repRangeMax: exercise.repRangeMax,
@@ -530,7 +584,7 @@ async function buildDatabaseDataset(userId: string): Promise<RawDataset | null> 
     console.error("Falling back to demo data:", error);
     return null;
   }
-}
+});
 
 function calculateStreak(sessions: RawSession[]) {
   const uniqueDays = Array.from(
@@ -569,13 +623,13 @@ function calculateStreak(sessions: RawSession[]) {
   return streak;
 }
 
-function buildSnapshot(dataset: RawDataset, isDemoMode: boolean): DashboardSnapshot {
-  const now = new Date();
-  const todayIndex = now.getDay() % dataset.dayTemplates.length;
-  const defaultPlan = dataset.dayTemplates[todayIndex];
-  const sessionsDescending = [...dataset.sessions].sort(
+function getSessionsDescending(sessions: RawSession[]) {
+  return [...sessions].sort(
     (left, right) => right.performedAt.getTime() - left.performedAt.getTime(),
   );
+}
+
+function buildLastLogMap(sessions: RawSession[]) {
   const lastLogMap = new Map<
     string,
     RawExerciseLog & {
@@ -583,7 +637,7 @@ function buildSnapshot(dataset: RawDataset, isDemoMode: boolean): DashboardSnaps
     }
   >();
 
-  for (const session of sessionsDescending) {
+  for (const session of getSessionsDescending(sessions)) {
     for (const log of session.exerciseLogs) {
       if (!lastLogMap.has(log.exerciseId)) {
         lastLogMap.set(log.exerciseId, { ...log, performedAt: session.performedAt });
@@ -591,49 +645,22 @@ function buildSnapshot(dataset: RawDataset, isDemoMode: boolean): DashboardSnaps
     }
   }
 
-  const weekStart = startOfWeek(now, { weekStartsOn: 1 });
-  const recentWindow = subDays(now, 7);
-  const weeklySessions = dataset.sessions.filter(
-    (session) => session.performedAt >= recentWindow,
-  );
-  const weeklyVolumeKg = weeklySessions.reduce(
-    (total, session) => total + session.totalVolumeKg,
-    0,
-  );
-  const weeklyCaloriesBurned = weeklySessions.reduce(
-    (total, session) => total + session.estimatedCaloriesBurned,
-    0,
-  );
-  const workoutsCompleted = weeklySessions.length;
-  const percent = Math.min(
-    100,
-    Math.round((workoutsCompleted / dataset.goal.weeklyWorkoutTarget) * 100),
-  );
-  const measurements = [...dataset.measurements].sort(
-    (left, right) => left.recordedAt.getTime() - right.recordedAt.getTime(),
-  );
-  const firstMeasurement = measurements[0];
-  const latestMeasurement = measurements[measurements.length - 1];
-  const weightDelta = latestMeasurement.weightKg - firstMeasurement.weightKg;
-  const waistDelta =
-    latestMeasurement.waistCm && firstMeasurement.waistCm
-      ? latestMeasurement.waistCm - firstMeasurement.waistCm
-      : 0;
-  const digest =
-    dataset.digests[0] ??
-    ({
-      weekStart,
-      workoutsCompleted,
-      workoutTarget: dataset.goal.weeklyWorkoutTarget,
-      totalVolumeKg: weeklyVolumeKg,
-      averageCaloriesBurned: weeklySessions.length
-        ? Math.round(weeklyCaloriesBurned / weeklySessions.length)
-        : 0,
-      highlight: "Momentum is building. Keep the progressive overload honest.",
-      focusForNextWeek: "Repeat the split and turn one more set into quality work.",
-    } satisfies RawDigest);
+  return lastLogMap;
+}
 
-  const buildPlan = (day: RawDayTemplate) => ({
+function buildWorkoutPlansSection(
+  dayTemplates: RawDayTemplate[],
+  sessions: RawSession[],
+): {
+  planDays: PlanDaySnapshot[];
+  workoutPlans: WorkoutPlanSnapshot[];
+  todayPlan: WorkoutPlanSnapshot;
+} {
+  const todayIndex = new Date().getDay() % dayTemplates.length;
+  const defaultPlan = dayTemplates[todayIndex];
+  const lastLogMap = buildLastLogMap(sessions);
+
+  const workoutPlans = dayTemplates.map((day) => ({
     id: day.id,
     slug: day.slug,
     name: day.name,
@@ -657,6 +684,10 @@ function buildSnapshot(dataset: RawDataset, isDemoMode: boolean): DashboardSnaps
         name: exercise.name,
         equipment: exercise.equipment,
         muscleGroup: exercise.muscleGroup,
+        instructions: exercise.instructions,
+        demoVideoLabel: exercise.demoVideoLabel,
+        demoVideoSource: exercise.demoVideoSource,
+        demoVideoUrl: exercise.demoVideoUrl,
         targetSets: exercise.targetSets,
         repRangeLabel: `${exercise.repRangeMin}-${exercise.repRangeMax} reps`,
         restSeconds: exercise.restSeconds,
@@ -675,15 +706,164 @@ function buildSnapshot(dataset: RawDataset, isDemoMode: boolean): DashboardSnaps
           : undefined,
       };
     }),
-  });
+  }));
 
-  const workoutPlans = dataset.dayTemplates.map(buildPlan);
   const todayPlan =
     workoutPlans.find((plan) => plan.slug === defaultPlan.slug) ?? workoutPlans[0];
 
+  return {
+    planDays: dayTemplates.map((day) => ({
+      id: day.id,
+      slug: day.slug,
+      name: day.name,
+      focus: day.focus,
+      accent: day.accent,
+      estimatedMinutes: day.estimatedMinutes,
+      exerciseCount: day.exercises.length,
+      isSelected: day.id === todayPlan.id,
+    })),
+    workoutPlans,
+    todayPlan,
+  };
+}
+
+function buildWeeklyMetrics(sessions: RawSession[], workoutTarget: number) {
+  const recentWindow = subDays(new Date(), 7);
+  const weeklySessions = sessions.filter((session) => session.performedAt >= recentWindow);
+  const weeklyVolumeKg = weeklySessions.reduce(
+    (total, session) => total + session.totalVolumeKg,
+    0,
+  );
+  const weeklyCaloriesBurned = weeklySessions.reduce(
+    (total, session) => total + session.estimatedCaloriesBurned,
+    0,
+  );
+  const workoutsCompleted = weeklySessions.length;
+  const percent = Math.min(
+    100,
+    Math.round((workoutsCompleted / workoutTarget) * 100),
+  );
+
+  return {
+    weekStart: startOfWeek(new Date(), { weekStartsOn: 1 }),
+    weeklySessions,
+    weeklyVolumeKg,
+    weeklyCaloriesBurned,
+    workoutsCompleted,
+    percent,
+  };
+}
+
+function buildCompletionSnapshot(
+  sessions: RawSession[],
+  workoutTarget: number,
+): CompletionSnapshot {
+  const metrics = buildWeeklyMetrics(sessions, workoutTarget);
+
+  return {
+    workoutsCompleted: metrics.workoutsCompleted,
+    workoutTarget,
+    percent: metrics.percent,
+    streak: calculateStreak(sessions),
+    weeklyVolumeKg: Math.round(metrics.weeklyVolumeKg),
+    weeklyCaloriesBurned: metrics.weeklyCaloriesBurned,
+  };
+}
+
+function buildWeeklyDigestSnapshot(
+  digests: RawDigest[],
+  sessions: RawSession[],
+  workoutTarget: number,
+): WeeklyDigestSnapshot {
+  const metrics = buildWeeklyMetrics(sessions, workoutTarget);
+  const digest =
+    digests[0] ??
+    ({
+      weekStart: metrics.weekStart,
+      workoutsCompleted: metrics.workoutsCompleted,
+      workoutTarget,
+      totalVolumeKg: metrics.weeklyVolumeKg,
+      averageCaloriesBurned: metrics.weeklySessions.length
+        ? Math.round(metrics.weeklyCaloriesBurned / metrics.weeklySessions.length)
+        : 0,
+      highlight: "Momentum is building. Keep the progressive overload honest.",
+      focusForNextWeek: "Repeat the split and turn one more set into quality work.",
+    } satisfies RawDigest);
+
+  return {
+    weekLabel: `${format(digest.weekStart, "dd MMM")} week`,
+    workoutsCompleted: digest.workoutsCompleted,
+    workoutTarget: digest.workoutTarget,
+    totalVolumeKg: Math.round(digest.totalVolumeKg),
+    averageCaloriesBurned: digest.averageCaloriesBurned,
+    highlight: digest.highlight,
+    focusForNextWeek: digest.focusForNextWeek,
+  };
+}
+
+function buildRecentMeasurements(
+  measurements: RawMeasurement[],
+): RecentMeasurementSnapshot[] {
+  return [...measurements]
+    .sort((left, right) => left.recordedAt.getTime() - right.recordedAt.getTime())
+    .slice(-5)
+    .map((entry) => ({
+      label: format(entry.recordedAt, "dd MMM"),
+      weight: entry.weightKg,
+      waist: entry.waistCm,
+      arm: entry.armCm,
+    }));
+}
+
+function buildStrengthTrend(sessions: RawSession[]): StrengthTrendSnapshot[] {
+  return sessions.slice(-6).map((session) => ({
+    label: format(session.performedAt, "dd MMM"),
+    volume: Math.round(session.totalVolumeKg),
+    topSet: Math.max(0, ...session.exerciseLogs.map((log) => log.weightKg)),
+  }));
+}
+
+function buildRecentSessions(sessions: RawSession[]): RecentSessionSnapshot[] {
+  return getSessionsDescending(sessions).slice(0, 4).map((session) => ({
+    id: session.id,
+    label: format(session.performedAt, "EEE, dd MMM"),
+    dayName: session.dayName,
+    calories: session.estimatedCaloriesBurned,
+    volume: Math.round(session.totalVolumeKg),
+  }));
+}
+
+function buildSnapshot(dataset: RawDataset, isDemoMode: boolean): DashboardSnapshot {
+  const completion = buildCompletionSnapshot(
+    dataset.sessions,
+    dataset.goal.weeklyWorkoutTarget,
+  );
+  const { planDays, workoutPlans, todayPlan } = buildWorkoutPlansSection(
+    dataset.dayTemplates,
+    dataset.sessions,
+  );
+  const weeklyDigest = buildWeeklyDigestSnapshot(
+    dataset.digests,
+    dataset.sessions,
+    dataset.goal.weeklyWorkoutTarget,
+  );
+  const recentMeasurements = buildRecentMeasurements(dataset.measurements);
+  const strengthTrend = buildStrengthTrend(dataset.sessions);
+  const recentSessions = buildRecentSessions(dataset.sessions);
+  const measurements = [...dataset.measurements].sort(
+    (left, right) => left.recordedAt.getTime() - right.recordedAt.getTime(),
+  );
+  const firstMeasurement = measurements[0];
+  const latestMeasurement = measurements[measurements.length - 1];
+  const weightDelta = latestMeasurement.weightKg - firstMeasurement.weightKg;
+  const waistDelta =
+    latestMeasurement.waistCm && firstMeasurement.waistCm
+      ? latestMeasurement.waistCm - firstMeasurement.waistCm
+      : 0;
+
   const strongestExercise = todayPlan.exercises.find((exercise) => exercise.lastLog);
   const insights = [
-    `${dataset.user.name.split(" ")[0]}, your weekly pace is ${percent}% of target and your streak is ${calculateStreak(dataset.sessions)} sessions deep.`,
+    `${dataset.user.name.split(" ")[0]}, your weekly pace is ${completion.percent}% of target and your streak is ${completion.streak} sessions deep.`,
     `Bodyweight is ${formatSigned(weightDelta)} kg since ${format(firstMeasurement.recordedAt, "dd MMM")} while waist is ${formatSigned(waistDelta)} cm.`,
     strongestExercise?.lastLog
       ? `${strongestExercise.name} is primed for ${
@@ -699,33 +879,17 @@ function buildSnapshot(dataset: RawDataset, isDemoMode: boolean): DashboardSnaps
       ...dataset.goal,
     },
     nutrition: dataset.nutrition,
-    planDays: dataset.dayTemplates.map((day) => ({
-      id: day.id,
-      slug: day.slug,
-      name: day.name,
-      focus: day.focus,
-      accent: day.accent,
-      estimatedMinutes: day.estimatedMinutes,
-      exerciseCount: day.exercises.length,
-      isSelected: day.id === todayPlan.id,
-    })),
+    planDays,
     workoutPlans,
     todayPlan: {
       ...todayPlan,
     },
-    completion: {
-      workoutsCompleted,
-      workoutTarget: dataset.goal.weeklyWorkoutTarget,
-      percent,
-      streak: calculateStreak(dataset.sessions),
-      weeklyVolumeKg: Math.round(weeklyVolumeKg),
-      weeklyCaloriesBurned,
-    },
+    completion,
     heroStats: [
       {
         label: "Weekly drive",
-        value: `${percent}%`,
-        detail: `${workoutsCompleted}/${dataset.goal.weeklyWorkoutTarget} sessions`,
+        value: `${completion.percent}%`,
+        detail: `${completion.workoutsCompleted}/${dataset.goal.weeklyWorkoutTarget} sessions`,
       },
       {
         label: "Fuel target",
@@ -739,37 +903,14 @@ function buildSnapshot(dataset: RawDataset, isDemoMode: boolean): DashboardSnaps
       },
       {
         label: "Volume bank",
-        value: `${formatCompactNumber(Math.round(weeklyVolumeKg))}`,
+        value: `${formatCompactNumber(completion.weeklyVolumeKg)}`,
         detail: "Kg moved this week",
       },
     ],
-    recentMeasurements: measurements.slice(-5).map((entry) => ({
-      label: format(entry.recordedAt, "dd MMM"),
-      weight: entry.weightKg,
-      waist: entry.waistCm,
-      arm: entry.armCm,
-    })),
-    strengthTrend: dataset.sessions.slice(-6).map((session) => ({
-      label: format(session.performedAt, "dd MMM"),
-      volume: Math.round(session.totalVolumeKg),
-      topSet: Math.max(...session.exerciseLogs.map((log) => log.weightKg)),
-    })),
-    recentSessions: sessionsDescending.slice(0, 4).map((session) => ({
-      id: session.id,
-      label: format(session.performedAt, "EEE, dd MMM"),
-      dayName: session.dayName,
-      calories: session.estimatedCaloriesBurned,
-      volume: Math.round(session.totalVolumeKg),
-    })),
-    weeklyDigest: {
-      weekLabel: `${format(digest.weekStart, "dd MMM")} week`,
-      workoutsCompleted: digest.workoutsCompleted,
-      workoutTarget: digest.workoutTarget,
-      totalVolumeKg: Math.round(digest.totalVolumeKg),
-      averageCaloriesBurned: digest.averageCaloriesBurned,
-      highlight: digest.highlight,
-      focusForNextWeek: digest.focusForNextWeek,
-    },
+    recentMeasurements,
+    strengthTrend,
+    recentSessions,
+    weeklyDigest,
     insights,
   };
 }
@@ -797,7 +938,370 @@ export async function getDashboardSnapshot({
   return buildSnapshot(buildDemoDataset(), true);
 }
 
-export async function getOnboardingDefaults(
+export const getWorkoutPageData = cache(
+  async function getWorkoutPageData(): Promise<WorkoutPageData | null> {
+    if (!hasUsableDatabaseUrl) {
+      return null;
+    }
+
+    const viewer = await getCurrentViewer();
+
+    if (!viewer?.id) {
+      return null;
+    }
+
+    try {
+      const db = requirePrisma();
+      const user = await db.user.findUnique({
+        where: { id: viewer.id },
+        select: {
+          splitPreference: true,
+          goal: {
+            select: {
+              weeklyWorkoutTarget: true,
+            },
+          },
+        },
+      });
+
+      if (!user?.goal || !user.splitPreference) {
+        return null;
+      }
+
+      const sessionsPromise = db.workoutSession.findMany({
+        where: { userId: viewer.id },
+        orderBy: { performedAt: "asc" },
+        include: {
+          dayTemplate: {
+            select: {
+              name: true,
+            },
+          },
+          exerciseLogs: {
+            include: {
+              exerciseTemplate: {
+                select: {
+                  name: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
+      const digestsPromise = db.weeklyDigest.findMany({
+        where: { userId: viewer.id },
+        orderBy: { weekStart: "desc" },
+        take: 1,
+      });
+
+      let dayTemplates = await loadDayTemplates(db, user.splitPreference);
+
+      if (dayTemplates.length === 0) {
+        await ensureWorkoutTemplatesSeeded(db);
+        dayTemplates = await loadDayTemplates(db, user.splitPreference);
+      }
+
+      if (dayTemplates.length === 0) {
+        return null;
+      }
+
+      const [sessions, digests] = await Promise.all([
+        sessionsPromise,
+        digestsPromise,
+      ]);
+
+      const rawSessions: RawSession[] = sessions.map((session) => ({
+        id: session.id,
+        dayTemplateId: session.dayTemplateId,
+        dayName: session.dayTemplate.name,
+        performedAt: session.performedAt,
+        durationMin: session.durationMin,
+        estimatedCaloriesBurned: session.estimatedCaloriesBurned,
+        totalVolumeKg: session.totalVolumeKg,
+        exerciseLogs: session.exerciseLogs.map((log) => ({
+          id: log.id,
+          exerciseId: log.exerciseTemplateId,
+          exerciseName: log.exerciseTemplate.name,
+          setsCompleted: log.setsCompleted,
+          repsCompleted: log.repsCompleted,
+          weightKg: log.weightKg,
+          achievedMaxKg: log.achievedMaxKg,
+          notes: log.notes,
+        })),
+      }));
+
+      const rawDigests: RawDigest[] = digests.map((digest) => ({
+        weekStart: digest.weekStart,
+        workoutsCompleted: digest.workoutsCompleted,
+        workoutTarget: digest.workoutTarget,
+        totalVolumeKg: digest.totalVolumeKg,
+        averageCaloriesBurned: digest.averageCaloriesBurned,
+        highlight: digest.highlight,
+        focusForNextWeek: digest.focusForNextWeek,
+      }));
+
+      const { planDays, workoutPlans, todayPlan } = buildWorkoutPlansSection(
+        dayTemplates,
+        rawSessions,
+      );
+
+      return {
+        planDays,
+        workoutPlans,
+        todayPlan,
+        weeklyDigest: buildWeeklyDigestSnapshot(
+          rawDigests,
+          rawSessions,
+          user.goal.weeklyWorkoutTarget,
+        ),
+        recentSessions: buildRecentSessions(rawSessions),
+      };
+    } catch (error) {
+      console.error("Unable to build workout page data:", error);
+      return null;
+    }
+  },
+);
+
+export const getProgressPageData = cache(
+  async function getProgressPageData(): Promise<ProgressPageData | null> {
+    if (!hasUsableDatabaseUrl) {
+      return null;
+    }
+
+    const viewer = await getCurrentViewer();
+
+    if (!viewer?.id) {
+      return null;
+    }
+
+    try {
+      const db = requirePrisma();
+      const recentWindow = subDays(new Date(), 7);
+
+      const [user, measurements, digests, strengthSessions, weeklySessions] =
+        await Promise.all([
+          db.user.findUnique({
+            where: { id: viewer.id },
+            select: {
+              currentWeightKg: true,
+              goal: {
+                select: {
+                  weeklyWorkoutTarget: true,
+                },
+              },
+            },
+          }),
+          db.measurementEntry.findMany({
+            where: { userId: viewer.id },
+            orderBy: { recordedAt: "desc" },
+            take: 5,
+            select: {
+              recordedAt: true,
+              weightKg: true,
+              waistCm: true,
+              armCm: true,
+            },
+          }),
+          db.weeklyDigest.findMany({
+            where: { userId: viewer.id },
+            orderBy: { weekStart: "desc" },
+            take: 1,
+          }),
+          db.workoutSession.findMany({
+            where: { userId: viewer.id },
+            orderBy: { performedAt: "desc" },
+            take: 6,
+            select: {
+              id: true,
+              performedAt: true,
+              totalVolumeKg: true,
+              exerciseLogs: {
+                select: {
+                  weightKg: true,
+                },
+              },
+            },
+          }),
+          db.workoutSession.findMany({
+            where: {
+              userId: viewer.id,
+              performedAt: {
+                gte: recentWindow,
+              },
+            },
+            orderBy: { performedAt: "asc" },
+            select: {
+              id: true,
+              performedAt: true,
+              estimatedCaloriesBurned: true,
+              totalVolumeKg: true,
+            },
+          }),
+        ]);
+
+      if (!user?.goal || user.currentWeightKg === null) {
+        return null;
+      }
+
+      const recentMeasurements =
+        measurements.length > 0
+          ? [...measurements].reverse().map((entry) => ({
+              label: format(entry.recordedAt, "dd MMM"),
+              weight: entry.weightKg,
+              waist: entry.waistCm,
+              arm: entry.armCm,
+            }))
+          : [
+              {
+                label: format(new Date(), "dd MMM"),
+                weight: user.currentWeightKg,
+                waist: null,
+                arm: null,
+              },
+            ];
+
+      const rawStrengthSessions: RawSession[] = [...strengthSessions]
+        .reverse()
+        .map((session) => ({
+          id: session.id,
+          dayTemplateId: "",
+          dayName: "",
+          performedAt: session.performedAt,
+          durationMin: 0,
+          estimatedCaloriesBurned: 0,
+          totalVolumeKg: session.totalVolumeKg,
+          exerciseLogs: session.exerciseLogs.map((log, index) => ({
+            id: `${session.id}-${index}`,
+            exerciseId: "",
+            exerciseName: "",
+            setsCompleted: 0,
+            repsCompleted: 0,
+            weightKg: log.weightKg,
+            achievedMaxKg: null,
+          })),
+        }));
+
+      const rawWeeklySessions: RawSession[] = weeklySessions.map((session) => ({
+        id: session.id,
+        dayTemplateId: "",
+        dayName: "",
+        performedAt: session.performedAt,
+        durationMin: 0,
+        estimatedCaloriesBurned: session.estimatedCaloriesBurned,
+        totalVolumeKg: session.totalVolumeKg,
+        exerciseLogs: [],
+      }));
+
+      const rawDigests: RawDigest[] = digests.map((digest) => ({
+        weekStart: digest.weekStart,
+        workoutsCompleted: digest.workoutsCompleted,
+        workoutTarget: digest.workoutTarget,
+        totalVolumeKg: digest.totalVolumeKg,
+        averageCaloriesBurned: digest.averageCaloriesBurned,
+        highlight: digest.highlight,
+        focusForNextWeek: digest.focusForNextWeek,
+      }));
+
+      return {
+        profile: {
+          currentWeightKg: user.currentWeightKg,
+        },
+        recentMeasurements,
+        strengthTrend: buildStrengthTrend(rawStrengthSessions),
+        weeklyDigest: buildWeeklyDigestSnapshot(
+          rawDigests,
+          rawWeeklySessions,
+          user.goal.weeklyWorkoutTarget,
+        ),
+      };
+    } catch (error) {
+      console.error("Unable to build progress page data:", error);
+      return null;
+    }
+  },
+);
+
+export const getProfilePageData = cache(
+  async function getProfilePageData(): Promise<ProfilePageData | null> {
+    if (!hasUsableDatabaseUrl) {
+      return null;
+    }
+
+    const viewer = await getCurrentViewer();
+
+    if (!viewer?.id) {
+      return null;
+    }
+
+    try {
+      const db = requirePrisma();
+      const user = await db.user.findUnique({
+        where: { id: viewer.id },
+        select: {
+          name: true,
+          age: true,
+          gender: true,
+          heightCm: true,
+          currentWeightKg: true,
+          splitPreference: true,
+          nutritionTarget: {
+            select: {
+              calories: true,
+            },
+          },
+          goal: {
+            select: {
+              activityLevel: true,
+              weeklyWorkoutTarget: true,
+            },
+          },
+        },
+      });
+
+      if (!user?.goal || user.currentWeightKg === null || !user.splitPreference) {
+        return null;
+      }
+
+      let calories = user.nutritionTarget?.calories ?? null;
+
+      if (calories === null) {
+        if (user.age === null || user.gender === null || user.heightCm === null) {
+          return null;
+        }
+
+        calories = calculateNutritionTargets({
+          age: user.age,
+          gender: user.gender,
+          heightCm: user.heightCm,
+          weightKg: user.currentWeightKg,
+          activityLevel: user.goal.activityLevel,
+          goalType: LIVE_GOAL_TYPE,
+        }).calories;
+      }
+
+      return {
+        profile: {
+          name: viewer.name ?? user.name ?? "Athlete",
+          currentWeightKg: user.currentWeightKg,
+          splitPreference: user.splitPreference,
+        },
+        nutrition: {
+          calories,
+        },
+        completion: {
+          workoutTarget: user.goal.weeklyWorkoutTarget,
+        },
+      };
+    } catch (error) {
+      console.error("Unable to build profile page data:", error);
+      return null;
+    }
+  },
+);
+
+const getOnboardingDefaultsCached = cache(async function getOnboardingDefaultsCached(
   userId?: string,
 ): Promise<OnboardingDefaults> {
   if (!userId || !hasUsableDatabaseUrl) {
@@ -807,7 +1311,7 @@ export async function getOnboardingDefaults(
       gender: demoProfile.gender,
       heightCm: demoProfile.heightCm,
       weightKg: demoProfile.currentWeightKg,
-      goalType: demoGoal.goalType,
+      goalType: LIVE_GOAL_TYPE,
       activityLevel: demoGoal.activityLevel,
       experienceLevel: demoGoal.experienceLevel,
       targetWeightKg: demoGoal.targetWeightKg,
@@ -826,11 +1330,15 @@ export async function getOnboardingDefaults(
     gender: user?.gender ?? demoProfile.gender,
     heightCm: user?.heightCm ?? demoProfile.heightCm,
     weightKg: user?.currentWeightKg ?? demoProfile.currentWeightKg,
-    goalType: user?.goal?.goalType ?? demoGoal.goalType,
+    goalType: LIVE_GOAL_TYPE,
     activityLevel: user?.goal?.activityLevel ?? demoGoal.activityLevel,
     experienceLevel: user?.goal?.experienceLevel ?? demoGoal.experienceLevel,
     targetWeightKg: user?.goal?.targetWeightKg ?? demoGoal.targetWeightKg,
   };
+});
+
+export async function getOnboardingDefaults(userId?: string) {
+  return getOnboardingDefaultsCached(userId);
 }
 
 export async function getAppShellData() {

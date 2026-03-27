@@ -55,13 +55,12 @@ export function OnboardingSection({
         <SectionHead
           eyebrow="Onboarding"
           title="Now collect the body details before the dashboard."
-          description="Muscle growth mode is active for now, so this setup is tuned for gaining size, tracking progression, and supporting recovery."
+          description="Muscle Growth is the live mode right now, so this setup is tuned for gaining size, tracking progression, and supporting recovery."
           dark
         />
 
         <form action={handleSubmit} className="mt-8 grid gap-4">
           <input type="hidden" name="splitPreference" value={selectedSplit} />
-          <input type="hidden" name="goalType" value="MUSCLE_GAIN" />
 
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <label className="text-sm text-white/68">Name<input name="name" defaultValue={defaults.name} className="field-dark" /></label>
@@ -73,9 +72,12 @@ export function OnboardingSection({
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <label className="text-sm text-white/68">Weight (kg)<input name="weightKg" type="number" step="0.1" defaultValue={defaults.weightKg} className="field-dark" /></label>
             <div className="rounded-[20px] border border-white/10 bg-white/4 px-4 py-3">
-              <p className="text-xs uppercase tracking-[0.18em] text-white/45">Mode</p>
+              <p className="text-xs uppercase tracking-[0.18em] text-white/45">Live mode</p>
               <p className="mt-2 text-sm font-semibold text-white">Muscle Growth</p>
-              <p className="mt-2 text-xs leading-6 text-white/50">Other modes are coming soon.</p>
+              <p className="mt-2 text-xs leading-6 text-white/50">
+                Fat Loss and Body Recomposition stay visible as coming soon on
+                the mode screen.
+              </p>
             </div>
             <label className="text-sm text-white/68">Activity<select name="activityLevel" defaultValue={defaults.activityLevel} className="field-dark"><option value="LIGHT">Light</option><option value="MODERATE">Moderate</option><option value="HIGH">High</option><option value="ATHLETE">Athlete</option></select></label>
             <label className="text-sm text-white/68">Experience<select name="experienceLevel" defaultValue={defaults.experienceLevel} className="field-dark"><option value="BEGINNER">Beginner</option><option value="INTERMEDIATE">Intermediate</option><option value="ADVANCED">Advanced</option></select></label>

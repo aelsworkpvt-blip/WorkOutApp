@@ -5,16 +5,16 @@ import { logoutAction } from "@/app/actions";
 import { DeleteAccountCard } from "@/components/delete-account-card";
 import { LegalLinks } from "@/components/legal-links";
 import { SectionHead } from "@/components/section-head";
-import { getDashboardSnapshot } from "@/lib/data";
+import { getProfilePageData } from "@/lib/data";
 import { requireAppViewer } from "@/lib/route-helpers";
 
 export const dynamic = "force-dynamic";
 
 export default async function ProfilePage() {
   const viewer = await requireAppViewer();
-  const dashboard = await getDashboardSnapshot({ allowDemoFallback: false });
+  const profileData = await getProfilePageData();
 
-  if (!dashboard) {
+  if (!profileData) {
     redirect("/");
   }
 
@@ -24,7 +24,7 @@ export default async function ProfilePage() {
         <div className="panel-dark p-6 sm:p-8">
           <SectionHead
             eyebrow="Profile"
-            title="Account, goals, and app actions live here."
+            title="Account, live focus, and app actions live here."
             description="On mobile, logout now belongs on this profile page instead of floating at the top of every screen."
             dark
           />
@@ -36,7 +36,7 @@ export default async function ProfilePage() {
                 Account
               </div>
               <p className="mt-3 text-2xl font-semibold text-white">
-                {viewer.name ?? dashboard.profile.name}
+                {viewer.name ?? profileData.profile.name}
               </p>
               <p className="mt-2 text-sm text-white/62">
                 {viewer.email ?? "No email connected"}
@@ -49,10 +49,10 @@ export default async function ProfilePage() {
                 Training setup
               </div>
               <p className="mt-3 text-2xl font-semibold text-white">
-                {dashboard.profile.splitPreference === "PPL" ? "Push Pull Legs" : "Bro Split"}
+                {profileData.profile.splitPreference === "PPL" ? "Push Pull Legs" : "Bro Split"}
               </p>
               <p className="mt-2 text-sm text-white/62">
-                Goal: {dashboard.profile.goalType.replaceAll("_", " ").toLowerCase()}
+                Live focus: Muscle building
               </p>
             </div>
           </div>
@@ -97,7 +97,7 @@ export default async function ProfilePage() {
                 Current weight
               </div>
               <p className="mt-3 text-3xl font-semibold text-[#171717]">
-                {dashboard.profile.currentWeightKg}kg
+                {profileData.profile.currentWeightKg}kg
               </p>
             </div>
 
@@ -107,7 +107,7 @@ export default async function ProfilePage() {
                 Daily calories
               </div>
               <p className="mt-3 text-3xl font-semibold text-[#171717]">
-                {dashboard.nutrition.calories}
+                {profileData.nutrition.calories}
               </p>
             </div>
 
@@ -117,7 +117,7 @@ export default async function ProfilePage() {
                 Weekly target
               </div>
               <p className="mt-3 text-3xl font-semibold text-[#171717]">
-                {dashboard.completion.workoutTarget}
+                {profileData.completion.workoutTarget}
               </p>
             </div>
           </div>

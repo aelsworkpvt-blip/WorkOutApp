@@ -1,6 +1,7 @@
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@prisma/client";
 import { Pool } from "pg";
+import { normalizePgConnectionString } from "@/lib/pg-connection-string";
 
 declare global {
   var prisma: PrismaClient | undefined;
@@ -11,11 +12,13 @@ export const hasUsableDatabaseUrl =
   Boolean(process.env.DATABASE_URL) &&
   !process.env.DATABASE_URL?.includes("johndoe:randompassword");
 
+const normalizedDatabaseUrl = normalizePgConnectionString(process.env.DATABASE_URL);
+
 function createPrismaClient() {
   const pool =
     global.prismaPool ??
     new Pool({
-      connectionString: process.env.DATABASE_URL,
+      connectionString: normalizedDatabaseUrl,
     });
 
   if (process.env.NODE_ENV !== "production") {

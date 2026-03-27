@@ -45,8 +45,11 @@ const accountDeletionRequestSchema = z.object({
   reason: z.string().trim().max(500).optional(),
 });
 
+const LIVE_TRAINING_MODE = "MUSCLE_GROWTH";
+const LIVE_GOAL_TYPE = "MUSCLE_GAIN";
+
 const trainingModeSchema = z.object({
-  trainingMode: z.enum(["MUSCLE_GROWTH"]),
+  trainingMode: z.enum([LIVE_TRAINING_MODE]),
 });
 
 const onboardingSchema = z.object({
@@ -56,7 +59,7 @@ const onboardingSchema = z.object({
   heightCm: z.number().min(120).max(240),
   weightKg: z.number().min(35).max(250),
   splitPreference: z.enum(["PPL", "BRO"]),
-  goalType: z.enum(["FAT_LOSS", "MUSCLE_GAIN", "MAINTENANCE", "PERFORMANCE"]),
+  goalType: z.literal(LIVE_GOAL_TYPE),
   activityLevel: z.enum(["LIGHT", "MODERATE", "HIGH", "ATHLETE"]),
   experienceLevel: z.enum(["BEGINNER", "INTERMEDIATE", "ADVANCED"]),
   targetWeightKg: z.number().min(35).max(250).nullable(),
@@ -145,7 +148,7 @@ async function refreshNutritionTarget(userId: string) {
     heightCm: user.heightCm,
     weightKg: user.currentWeightKg,
     activityLevel: user.goal.activityLevel,
-    goalType: user.goal.goalType,
+    goalType: LIVE_GOAL_TYPE,
   });
 
   await db.nutritionTarget.upsert({
@@ -433,7 +436,7 @@ export async function selectTrainingModeAction(
   if (!parsed.success) {
     return {
       success: false,
-      error: "Only muscle growth is available right now.",
+      error: "Only Muscle Growth is live right now.",
     };
   }
 
@@ -464,7 +467,7 @@ export async function saveOnboardingAction(formData: FormData) {
     heightCm: requiredNumber(formData.get("heightCm")),
     weightKg: requiredNumber(formData.get("weightKg")),
     splitPreference: requiredString(formData.get("splitPreference")),
-    goalType: requiredString(formData.get("goalType")),
+    goalType: LIVE_GOAL_TYPE,
     activityLevel: requiredString(formData.get("activityLevel")),
     experienceLevel: requiredString(formData.get("experienceLevel")),
     targetWeightKg: nullableNumber(formData.get("targetWeightKg")),

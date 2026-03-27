@@ -24,7 +24,7 @@ export default async function AccountDeletePage() {
             Account Deletion
           </p>
           <h1 className="mt-4 text-3xl font-[family:var(--font-sora)] text-white sm:text-4xl">
-            Delete your Forge Motion account
+            Delete your FitX account
           </h1>
           <p className="mt-4 max-w-3xl text-sm leading-7 text-white/72 sm:text-base">
             This public page exists for Play Store compliance and real user support.

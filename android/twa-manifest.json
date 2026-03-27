@@ -1,8 +1,8 @@
 {
     "packageId":  "com.ElithX.FitX",
     "host":  "workoutapp-dusky.vercel.app",
-    "name":  "Forge Motion",
-    "launcherName":  "Forge Motion",
+    "name":  "FitX",
+    "launcherName":  "FitX",
     "display":  "standalone",
     "themeColor":  "#111622",
     "themeColorDark":  "#000000",

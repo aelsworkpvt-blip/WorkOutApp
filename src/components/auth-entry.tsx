@@ -10,10 +10,10 @@ function AuthSplash() {
     <section className="flex min-h-[calc(100vh-2rem)] items-center justify-center">
       <div className="panel-dark relative w-full max-w-4xl overflow-hidden p-6 pb-12 sm:p-8 sm:pb-14 lg:p-10 lg:pb-16">
         <p className="text-sm uppercase tracking-[0.28em] text-white/45">
-          Forge Motion
+          FitX
         </p>
         <h1 className="mt-4 max-w-4xl text-4xl leading-tight font-[family:var(--font-sora)] text-white sm:text-5xl lg:text-6xl">
-          Login first. Then mode, split, and onboarding unlock.
+          Login first. Then choose your mode, split, and onboarding flow.
         </h1>
         <p className="mt-5 max-w-3xl text-sm leading-7 text-white/68 sm:text-base">
           Real email and password auth is now in place, so every workout history,
@@ -27,7 +27,8 @@ function AuthSplash() {
         <div className="mt-8 grid gap-3">
           {[
             "Create your own account with email and password.",
-            "Choose your training mode right after login.",
+            "Muscle Growth is the live mode right now.",
+            "Fat Loss and Body Recomposition stay visible as coming soon.",
             "Logout clears the session safely.",
             "After login: mode choice -> split choice -> onboarding -> dashboard.",
           ].map((item) => (

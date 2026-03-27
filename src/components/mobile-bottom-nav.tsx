@@ -41,6 +41,7 @@ export function MobileBottomNav() {
             <Link
               key={item.href}
               href={item.href}
+              prefetch={false}
               className={cn(
                 "inline-flex flex-1 flex-col items-center justify-center rounded-full px-3 py-2 text-[11px] font-semibold transition",
                 isActive ? "bg-[#ffd54f] text-[#171717]" : "text-white/70 hover:bg-white/8",

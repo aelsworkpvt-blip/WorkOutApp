@@ -3,8 +3,8 @@ import type { MetadataRoute } from "next";
 export default function manifest(): MetadataRoute.Manifest {
   return {
     id: "/",
-    name: "Forge Motion",
-    short_name: "Forge Motion",
+    name: "FitX",
+    short_name: "FitX",
     description:
       "Mobile-first workout tracking with split planning, workout memory, body measurements, and weekly progress.",
     start_url: "/",

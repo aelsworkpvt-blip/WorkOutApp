@@ -28,7 +28,7 @@ export default async function SplitPage() {
             Choose the training style before the app builds your workout flow.
           </h1>
           <p className="mt-4 max-w-2xl text-sm leading-7 text-white/68 sm:text-base">
-            On mobile this is now its own clean screen. Pick the split, move into
+            Muscle Growth is the live mode right now. Pick the split, move into
             onboarding, then land on the dashboard only after setup is done.
           </p>
 

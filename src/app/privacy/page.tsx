@@ -10,7 +10,7 @@ const policySections = [
   {
     title: "What we collect",
     description:
-      "Forge Motion stores the information you enter to run the app: account email, password hash, profile details like age, gender, height and weight, workout history, measurements, nutrition targets, and weekly training summaries.",
+      "FitX stores the information you enter to run the app: account email, password hash, profile details like age, gender, height and weight, workout history, measurements, nutrition targets, and weekly training summaries.",
     icon: Database,
   },
   {
@@ -42,11 +42,11 @@ export default function PrivacyPage() {
             Privacy Policy
           </p>
           <h1 className="mt-4 text-3xl font-[family:var(--font-sora)] text-white sm:text-4xl">
-            Forge Motion privacy policy
+            FitX privacy policy
           </h1>
           <p className="mt-4 max-w-3xl text-sm leading-7 text-white/72 sm:text-base">
-            Last updated on March 25, 2026. This page explains what data Forge
-            Motion stores, why it is used, and how users can request deletion of
+            Last updated on March 25, 2026. This page explains what data FitX
+            stores, why it is used, and how users can request deletion of
             their account and fitness history.
           </p>
 
@@ -92,7 +92,7 @@ export default function PrivacyPage() {
 
             <ul className="mt-6 grid gap-3 text-sm leading-7 text-[var(--muted-light)] sm:text-base">
               <li className="rounded-[22px] bg-white/70 p-4">
-                Forge Motion currently collects workout and body-measurement data
+                FitX currently collects workout and body-measurement data
                 only when you enter it directly into the app.
               </li>
               <li className="rounded-[22px] bg-white/70 p-4">

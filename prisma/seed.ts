@@ -5,10 +5,11 @@ import { hash } from "bcryptjs";
 import { Pool } from "pg";
 import { calculateNutritionTargets, calculateVolume, estimateWorkoutCalories } from "../src/lib/calculations";
 import { demoGoal, demoMeasurements, demoProfile, demoSessionBlueprints, demoWeeklyDigests } from "../src/lib/app-fixture";
+import { normalizePgConnectionString } from "../src/lib/pg-connection-string";
 import { workoutTemplates } from "../src/lib/workout-templates";
 
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+  connectionString: normalizePgConnectionString(process.env.DATABASE_URL),
 });
 
 const prisma = new PrismaClient({
@@ -58,6 +59,9 @@ async function main() {
               equipment: exercise.equipment,
               instructions: exercise.instructions,
               progressCue: exercise.progressCue,
+              demoVideoLabel: exercise.demoVideoLabel,
+              demoVideoSource: exercise.demoVideoSource,
+              demoVideoUrl: exercise.demoVideoUrl,
               targetSets: exercise.targetSets,
               repRangeMin: exercise.repRangeMin,
               repRangeMax: exercise.repRangeMax,
@@ -200,7 +204,7 @@ async function main() {
     })),
   });
 
-  console.log("Seeded Forge Motion demo athlete and workout templates.");
+  console.log("Seeded FitX demo athlete and workout templates.");
   console.log("Demo login: demo@forgemotion.app / DemoStrong123");
 }
 

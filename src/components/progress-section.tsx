@@ -1,15 +1,15 @@
 "use client";
 
-import type { DashboardSnapshot } from "@/lib/data";
-import { ProgressCharts } from "@/components/progress-charts";
+import type { ProgressPageData } from "@/lib/data";
+import { DeferredProgressCharts } from "@/components/deferred-progress-charts";
 import { SectionHead } from "@/components/section-head";
 import { SubmitButton } from "@/components/submit-button";
 import { saveMeasurementEntryAction } from "@/app/actions";
 
-export function ProgressSection({ data }: { data: DashboardSnapshot }) {
+export function ProgressSection({ data }: { data: ProgressPageData }) {
   return (
     <section id="progress" className="grid gap-6">
-      <ProgressCharts
+      <DeferredProgressCharts
         measurements={data.recentMeasurements}
         strength={data.strengthTrend}
       />

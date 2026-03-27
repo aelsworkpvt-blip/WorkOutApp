@@ -11,6 +11,7 @@
     "db:migrate": "prisma migrate dev",
     "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts",
+    "db:sync-templates": "tsx prisma/sync-workout-templates.ts",
     "db:studio": "prisma studio",
     "pwa:icons": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/generate-pwa-icons.ps1",
     "android:twa:sync": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/twa-sync.ps1",

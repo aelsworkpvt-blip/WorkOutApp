@@ -16,7 +16,7 @@ export default function OfflinePage() {
             You are offline right now.
           </h1>
           <p className="mt-4 text-sm leading-7 text-white/72 sm:text-base">
-            Forge Motion can open again as soon as your connection comes back.
+            FitX can open again as soon as your connection comes back.
             Your saved data is still safe, but new workout logs and measurements
             need the internet before they can sync to Postgres.
           </p>

@@ -111,6 +111,9 @@ model ExerciseTemplate {
   equipment     String
   instructions  String
   progressCue   String
+  demoVideoLabel  String?
+  demoVideoSource String?
+  demoVideoUrl    String?
   targetSets    Int
   repRangeMin   Int
   repRangeMax   Int

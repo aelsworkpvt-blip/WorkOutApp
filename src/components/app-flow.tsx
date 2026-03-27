@@ -96,7 +96,7 @@ export function AppFlow({
           <section className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
             <div className="panel-dark p-6 sm:p-8">
               <p className="text-sm uppercase tracking-[0.28em] text-white/45">
-                Forge Motion
+                FitX
               </p>
               <h1 className="mt-4 max-w-3xl text-4xl leading-tight font-[family:var(--font-sora)] text-white sm:text-5xl">
                 Start with the split. Dashboard comes later.

@@ -27,10 +27,10 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   metadataBase: appUrl,
-  applicationName: "Forge Motion",
+  applicationName: "FitX",
   title: {
-    default: "Forge Motion",
-    template: "%s | Forge Motion",
+    default: "FitX",
+    template: "%s | FitX",
   },
   description:
     "Adaptive workout memory, smart progression, measurements, macros, and weekly digest in one mobile-first training app.",
@@ -41,7 +41,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "Forge Motion",
+    title: "FitX",
   },
   icons: {
     shortcut: "/favicon.ico",

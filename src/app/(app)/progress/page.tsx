@@ -2,14 +2,14 @@ import { redirect } from "next/navigation";
 import { Flame, Scale, TrendingUp } from "lucide-react";
 import { ProgressSection } from "@/components/progress-section";
 import { SectionHead } from "@/components/section-head";
-import { getDashboardSnapshot } from "@/lib/data";
+import { getProgressPageData } from "@/lib/data";
 
 export const dynamic = "force-dynamic";
 
 export default async function ProgressPage() {
-  const dashboard = await getDashboardSnapshot({ allowDemoFallback: false });
+  const progressPage = await getProgressPageData();
 
-  if (!dashboard) {
+  if (!progressPage) {
     redirect("/");
   }
 
@@ -30,9 +30,9 @@ export default async function ProgressPage() {
               Sessions
             </div>
             <p className="mt-3 text-3xl font-semibold text-white">
-              {dashboard.weeklyDigest.workoutsCompleted}/{dashboard.weeklyDigest.workoutTarget}
+              {progressPage.weeklyDigest.workoutsCompleted}/{progressPage.weeklyDigest.workoutTarget}
             </p>
-            <p className="mt-2 text-sm text-white/58">{dashboard.weeklyDigest.weekLabel}</p>
+            <p className="mt-2 text-sm text-white/58">{progressPage.weeklyDigest.weekLabel}</p>
           </div>
 
           <div className="rounded-[24px] border border-white/8 bg-white/4 p-5">
@@ -41,7 +41,7 @@ export default async function ProgressPage() {
               Avg burn
             </div>
             <p className="mt-3 text-3xl font-semibold text-white">
-              {dashboard.weeklyDigest.averageCaloriesBurned}
+              {progressPage.weeklyDigest.averageCaloriesBurned}
             </p>
             <p className="mt-2 text-sm text-white/58">Calories per workout</p>
           </div>
@@ -52,7 +52,7 @@ export default async function ProgressPage() {
               Volume
             </div>
             <p className="mt-3 text-3xl font-semibold text-white">
-              {dashboard.weeklyDigest.totalVolumeKg}kg
+              {progressPage.weeklyDigest.totalVolumeKg}kg
             </p>
             <p className="mt-2 text-sm text-white/58">Moved this week</p>
           </div>
@@ -63,15 +63,15 @@ export default async function ProgressPage() {
             Highlight
           </p>
           <p className="mt-3 text-lg font-semibold text-white">
-            {dashboard.weeklyDigest.highlight}
+            {progressPage.weeklyDigest.highlight}
           </p>
           <p className="mt-3 text-sm leading-7 text-white/64">
-            Next focus: {dashboard.weeklyDigest.focusForNextWeek}
+            Next focus: {progressPage.weeklyDigest.focusForNextWeek}
           </p>
         </div>
       </section>
 
-      <ProgressSection data={dashboard} />
+      <ProgressSection data={progressPage} />
     </div>
   );
 }

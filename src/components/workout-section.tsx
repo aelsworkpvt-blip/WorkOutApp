@@ -1,22 +1,30 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useDeferredValue, useEffect, useState } from "react";
 import Link from "next/link";
-import { ChevronRight, X } from "lucide-react";
-import type { DashboardSnapshot } from "@/lib/data";
+import { ChevronRight, Lightbulb, Search, X, Youtube } from "lucide-react";
+import type { WorkoutPageData } from "@/lib/data";
 import { logWorkoutAction } from "@/app/actions";
+import { ExerciseDemoPreview } from "@/components/exercise-demo-preview";
 import { SectionHead } from "@/components/section-head";
 import { SubmitButton } from "@/components/submit-button";
 
 type WorkoutSectionProps = {
-  data: DashboardSnapshot;
-  activePlan: DashboardSnapshot["workoutPlans"][number];
+  data: WorkoutPageData;
+  activePlan: WorkoutPageData["workoutPlans"][number];
   activeDaySlug: string;
   onSelectDay?: (slug: string) => void;
   dayHrefBase?: string;
   showSidebar?: boolean;
   compactIntro?: boolean;
 };
+
+type WorkoutExercise = WorkoutPageData["workoutPlans"][number]["exercises"][number];
+
+function buildYoutubeSearchUrl(exercise: WorkoutExercise) {
+  const query = `${exercise.name} exercise form tutorial ${exercise.equipment}`;
+  return `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
+}
 
 export function WorkoutSection({
   data,
@@ -31,17 +39,38 @@ export function WorkoutSection({
     ? "grid gap-6 xl:grid-cols-[1.15fr_0.85fr]"
     : "grid gap-6";
   const [selectedExerciseId, setSelectedExerciseId] = useState<string | null>(null);
+  const [hintExerciseId, setHintExerciseId] = useState<string | null>(null);
+  const [searchState, setSearchState] = useState({
+    daySlug: activeDaySlug,
+    query: "",
+  });
+  const searchQuery =
+    searchState.daySlug === activeDaySlug ? searchState.query : "";
+  const deferredSearchQuery = useDeferredValue(searchQuery);
+  const normalizedSearchQuery = deferredSearchQuery.trim().toLowerCase();
   const selectedExercise =
     activePlan.exercises.find((exercise) => exercise.id === selectedExerciseId) ?? null;
+  const hintExercise =
+    activePlan.exercises.find((exercise) => exercise.id === hintExerciseId) ?? null;
+  const visibleExercises = activePlan.exercises.filter((exercise) => {
+    if (!normalizedSearchQuery) {
+      return true;
+    }
+
+    return [exercise.name, exercise.equipment, exercise.muscleGroup].some((value) =>
+      value.toLowerCase().includes(normalizedSearchQuery),
+    );
+  });
 
   useEffect(() => {
-    if (!selectedExerciseId) {
+    if (!selectedExerciseId && !hintExerciseId) {
       return;
     }
 
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
         setSelectedExerciseId(null);
+        setHintExerciseId(null);
       }
     }
 
@@ -49,7 +78,7 @@ export function WorkoutSection({
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [selectedExerciseId]);
+  }, [hintExerciseId, selectedExerciseId]);
 
   async function handleLogWorkout(formData: FormData) {
     await logWorkoutAction(formData);
@@ -86,6 +115,7 @@ export function WorkoutSection({
               <Link
                 key={day.id}
                 href={`${dayHrefBase}?day=${day.slug}`}
+                prefetch={false}
                 className={
                   day.slug === activeDaySlug
                     ? "rounded-full px-4 py-3 text-sm font-semibold text-[#151515]"
@@ -134,18 +164,60 @@ export function WorkoutSection({
                 <p className="mt-2 text-sm text-white/62">{activePlan.focus}</p>
               </div>
               <div className="rounded-full border border-white/10 px-4 py-2 text-sm text-white/74">
-                {activePlan.exerciseCount} available exercises
+                {normalizedSearchQuery
+                  ? `${visibleExercises.length}/${activePlan.exerciseCount} matches`
+                  : `${activePlan.exerciseCount} available exercises`}
               </div>
             </div>
           </div>
         ) : null}
 
+        <div className="mt-6 rounded-[26px] border border-white/8 bg-white/4 p-5">
+          <label className="block">
+            <span className="text-xs font-semibold uppercase tracking-[0.22em] text-white/42">
+              Search exercises
+            </span>
+            <div className="relative mt-3">
+              <Search className="pointer-events-none absolute top-1/2 left-4 h-4 w-4 -translate-y-1/2 text-white/42" />
+              <input
+                value={searchQuery}
+                onChange={(event) =>
+                  setSearchState({
+                    daySlug: activeDaySlug,
+                    query: event.target.value,
+                  })
+                }
+                placeholder="Search by lift, equipment, or muscle group"
+                className="field-dark w-full pr-12 pl-11"
+              />
+              {searchQuery ? (
+                <button
+                  type="button"
+                  onClick={() =>
+                    setSearchState({
+                      daySlug: activeDaySlug,
+                      query: "",
+                    })
+                  }
+                  className="absolute top-1/2 right-3 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-white/10 bg-white/6 text-white/72 transition hover:bg-white/10"
+                  aria-label="Clear exercise search"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              ) : null}
+            </div>
+          </label>
+          <p className="mt-3 text-xs leading-6 text-white/44">
+            {normalizedSearchQuery
+              ? `Showing ${visibleExercises.length} matching exercises inside ${activePlan.name}.`
+              : `Browse all ${activePlan.exerciseCount} exercise options for ${activePlan.name}.`}
+          </p>
+        </div>
+
         <div className="mt-6 grid gap-4">
-          {activePlan.exercises.map((exercise) => (
-            <button
+          {visibleExercises.map((exercise) => (
+            <div
               key={exercise.id}
-              type="button"
-              onClick={() => setSelectedExerciseId(exercise.id)}
               className="group rounded-[26px] border border-white/8 bg-white/4 p-4 text-left transition hover:-translate-y-0.5 hover:border-white/14 hover:bg-white/6 sm:p-5"
             >
               <div className="flex items-start justify-between gap-3">
@@ -160,18 +232,57 @@ export function WorkoutSection({
                     {exercise.equipment}
                   </span>
                 </div>
-                <span className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/4 text-white/48 transition group-hover:text-white/78">
-                  <ChevronRight className="h-4 w-4" />
-                </span>
+                <div className="flex items-center gap-2">
+                  <a
+                    href={buildYoutubeSearchUrl(exercise)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/4 text-white/52 transition hover:border-[#ff5f57]/50 hover:text-[#ff5f57]"
+                    aria-label={`Watch ${exercise.name} on YouTube`}
+                    title={`Watch ${exercise.name} on YouTube`}
+                  >
+                    <Youtube className="h-4 w-4" />
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => setHintExerciseId(exercise.id)}
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/4 text-white/52 transition hover:border-[#ffd54f]/45 hover:text-[#ffd54f]"
+                    aria-label={`Show workout hints for ${exercise.name}`}
+                    title={`Show workout hints for ${exercise.name}`}
+                  >
+                    <Lightbulb className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedExerciseId(exercise.id)}
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/4 text-white/48 transition group-hover:text-white/78 hover:border-white/18"
+                    aria-label={`Open details for ${exercise.name}`}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
-              <h3 className="mt-4 text-xl font-[family:var(--font-sora)] text-white sm:text-2xl">
-                {exercise.name}
-              </h3>
-              <p className="mt-2 text-sm text-white/62">
-                {exercise.targetSets} sets | {exercise.repRangeLabel} | {exercise.restSeconds}s rest
-              </p>
-            </button>
+              <button
+                type="button"
+                onClick={() => setSelectedExerciseId(exercise.id)}
+                className="block w-full text-left"
+              >
+                <h3 className="mt-4 text-xl font-[family:var(--font-sora)] text-white sm:text-2xl">
+                  {exercise.name}
+                </h3>
+                <p className="mt-2 text-sm text-white/62">
+                  {exercise.targetSets} sets | {exercise.repRangeLabel} | {exercise.restSeconds}s rest
+                </p>
+              </button>
+            </div>
           ))}
+
+          {visibleExercises.length === 0 ? (
+            <div className="rounded-[26px] border border-dashed border-white/12 bg-white/4 p-6 text-sm leading-7 text-white/62">
+              No exercises match that search yet. Try a broader name, equipment,
+              or muscle group.
+            </div>
+          ) : null}
         </div>
       </div>
 
@@ -219,9 +330,41 @@ export function WorkoutSection({
             <p className="mt-2 text-sm text-white/62">
               {selectedExercise.targetSets} sets | {selectedExercise.repRangeLabel} | {selectedExercise.restSeconds}s rest
             </p>
-            <p className="mt-5 max-w-xl text-sm leading-8 text-white/68">
-              {selectedExercise.progressCue}
-            </p>
+
+            <ExerciseDemoPreview
+              exerciseName={selectedExercise.name}
+              muscleGroup={selectedExercise.muscleGroup}
+              equipment={selectedExercise.equipment}
+              accent={activePlan.accent}
+              instructions={selectedExercise.instructions}
+              progressCue={selectedExercise.progressCue}
+              demoVideoLabel={selectedExercise.demoVideoLabel}
+              demoVideoSource={selectedExercise.demoVideoSource}
+              demoVideoUrl={selectedExercise.demoVideoUrl}
+              targetSets={selectedExercise.targetSets}
+              repRangeLabel={selectedExercise.repRangeLabel}
+              restSeconds={selectedExercise.restSeconds}
+              allowFullscreen={false}
+            />
+
+            <div className="mt-5 grid gap-3">
+              <div className="rounded-[22px] border border-white/10 bg-[#0f1520] px-4 py-4">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-white/38">
+                  Setup
+                </p>
+                <p className="mt-2 text-sm leading-7 text-white/74">
+                  {selectedExercise.instructions}
+                </p>
+              </div>
+              <div className="rounded-[22px] border border-white/10 bg-[#0f1520] px-4 py-4">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-white/38">
+                  Progress cue
+                </p>
+                <p className="mt-2 text-sm leading-7 text-white/74">
+                  {selectedExercise.progressCue}
+                </p>
+              </div>
+            </div>
 
             <div className="mt-5 rounded-[22px] border border-white/10 bg-[#0f1520] px-4 py-4 text-sm leading-7 text-white/74">
               {selectedExercise.lastLog ? (
@@ -265,6 +408,103 @@ export function WorkoutSection({
                 </SubmitButton>
               </div>
             </form>
+          </div>
+        </div>
+      ) : null}
+
+      {hintExercise ? (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-[rgba(8,11,18,0.72)] p-4 backdrop-blur-sm sm:items-center"
+          onClick={() => setHintExerciseId(null)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label={`${hintExercise.name} workout hints`}
+            className="panel-dark w-full max-w-lg max-h-[90vh] overflow-y-auto p-5 sm:p-6"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span
+                    className="rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-[#171717]"
+                    style={{ backgroundColor: activePlan.accent }}
+                  >
+                    {hintExercise.muscleGroup}
+                  </span>
+                  <span className="rounded-full border border-white/10 px-3 py-1 text-xs uppercase tracking-[0.2em] text-white/48">
+                    {hintExercise.equipment}
+                  </span>
+                </div>
+                <p className="mt-3 text-[11px] font-semibold uppercase tracking-[0.22em] text-white/38">
+                  Workout hint
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setHintExerciseId(null)}
+                className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/4 text-white/76 transition hover:bg-white/8"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <h3 className="mt-4 text-3xl font-[family:var(--font-sora)] text-white">
+              {hintExercise.name}
+            </h3>
+            <p className="mt-2 text-sm text-white/62">
+              Position, control, and clean range cues before you load it heavier.
+            </p>
+
+            <div className="mt-5 grid gap-3">
+              <div className="rounded-[22px] border border-white/10 bg-[#0f1520] px-4 py-4">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-white/38">
+                  Position
+                </p>
+                <p className="mt-2 text-sm leading-7 text-white/74">
+                  {hintExercise.instructions}
+                </p>
+              </div>
+              <div className="rounded-[22px] border border-white/10 bg-[#0f1520] px-4 py-4">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-white/38">
+                  Angle & control
+                </p>
+                <p className="mt-2 text-sm leading-7 text-white/74">
+                  {hintExercise.progressCue}
+                </p>
+              </div>
+              <div className="rounded-[22px] border border-white/10 bg-[#0f1520] px-4 py-4">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-white/38">
+                  Range & pace
+                </p>
+                <p className="mt-2 text-sm leading-7 text-white/74">
+                  Complete {hintExercise.targetSets} working sets in the {hintExercise.repRangeLabel} range, own the full ROM, and rest about {hintExercise.restSeconds} seconds between sets.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-5 grid gap-3 sm:grid-cols-2">
+              <a
+                href={buildYoutubeSearchUrl(hintExercise)}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center justify-center gap-2 rounded-full bg-[#ff5f57] px-4 py-3 text-sm font-semibold text-[#151515] transition hover:bg-[#ff837d]"
+              >
+                <Youtube className="h-4 w-4" />
+                Watch on YouTube
+              </a>
+              <button
+                type="button"
+                onClick={() => {
+                  setHintExerciseId(null);
+                  setSelectedExerciseId(hintExercise.id);
+                }}
+                className="inline-flex items-center justify-center rounded-full border border-white/10 bg-white/4 px-4 py-3 text-sm font-semibold text-white transition hover:bg-white/8"
+              >
+                Open full exercise card
+              </button>
+            </div>
           </div>
         </div>
       ) : null}

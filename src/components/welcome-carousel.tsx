@@ -2,7 +2,16 @@
 
 import { startTransition, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronLeft, ChevronRight, Dumbbell, Flame, LineChart, Scale, Sparkles, Target } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Dumbbell,
+  Flame,
+  LineChart,
+  Scale,
+  Sparkles,
+  Target,
+} from "lucide-react";
 import { dismissWelcomeCarouselAction } from "@/app/actions";
 
 type WelcomeCarouselProps = {
@@ -68,7 +77,7 @@ export function WelcomeCarousel({ userName }: WelcomeCarouselProps) {
         eyebrow: "Pain points solved",
         title: "This app is built to remove guesswork for lifters.",
         description:
-          "You should not have to remember last week’s weights, guess macros, or wonder whether the plan is moving the body in the right direction.",
+          "You should not have to remember last week's weights, guess muscle-building macros, or wonder whether the plan is moving the body in the right direction.",
         accent: "#ff9f68",
         cards: [
           {
@@ -78,8 +87,8 @@ export function WelcomeCarousel({ userName }: WelcomeCarouselProps) {
           },
           {
             icon: Sparkles,
-            title: "Goal-based nutrition",
-            body: "Calories, protein, carbs, fiber, and fat are based on onboarding goals.",
+            title: "Muscle-building nutrition",
+            body: "Calories, protein, carbs, fiber, and fat are tuned for the live muscle-growth path.",
           },
           {
             icon: Sparkles,
@@ -158,8 +167,16 @@ export function WelcomeCarousel({ userName }: WelcomeCarouselProps) {
               {slides.map((item, index) => (
                 <span
                   key={item.title}
-                  className={index === activeIndex ? "h-2.5 w-8 rounded-full" : "h-2.5 w-2.5 rounded-full bg-black/12"}
-                  style={index === activeIndex ? { backgroundColor: slide.accent } : undefined}
+                  className={
+                    index === activeIndex
+                      ? "h-2.5 w-8 rounded-full"
+                      : "h-2.5 w-2.5 rounded-full bg-black/12"
+                  }
+                  style={
+                    index === activeIndex
+                      ? { backgroundColor: slide.accent }
+                      : undefined
+                  }
                 />
               ))}
             </div>
@@ -182,7 +199,9 @@ export function WelcomeCarousel({ userName }: WelcomeCarouselProps) {
                     return;
                   }
 
-                  setActiveIndex((index) => Math.min(slides.length - 1, index + 1));
+                  setActiveIndex((index) =>
+                    Math.min(slides.length - 1, index + 1),
+                  );
                 }}
                 disabled={isClosing}
                 className="inline-flex items-center gap-2 rounded-full bg-[#171717] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#2b2b2b] disabled:cursor-not-allowed disabled:opacity-60"

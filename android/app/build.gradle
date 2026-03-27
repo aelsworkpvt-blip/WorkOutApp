@@ -24,8 +24,8 @@ def twaManifest = [
     applicationId: 'com.ElithX.FitX',
     hostName: 'workoutapp-dusky.vercel.app', // The domain being opened in the TWA.
     launchUrl: '/', // The start path for the TWA. Must be relative to the domain.
-    name: 'Forge Motion', // The application name.
-    launcherName: 'Forge Motion', // The name shown on the Android Launcher.
+    name: 'FitX', // The application name.
+    launcherName: 'FitX', // The name shown on the Android Launcher.
     themeColor: '#111622', // The color used for the status bar.
     themeColorDark: '#000000', // The color used for the dark status bar.
     navigationColor: '#000000', // The color used for the navigation bar.
@@ -50,25 +50,9 @@ def twaManifest = [
     orientation: 'portrait',
 ]
 
-def uploadKeystorePath = System.getenv('UPLOAD_KEYSTORE_PATH') ?: project.findProperty('UPLOAD_KEYSTORE_PATH')
-def uploadKeyAlias = System.getenv('UPLOAD_KEY_ALIAS') ?: project.findProperty('UPLOAD_KEY_ALIAS')
-def uploadKeystorePassword = System.getenv('UPLOAD_KEYSTORE_PASSWORD') ?: project.findProperty('UPLOAD_KEYSTORE_PASSWORD')
-def uploadKeyPassword = System.getenv('UPLOAD_KEY_PASSWORD') ?: project.findProperty('UPLOAD_KEY_PASSWORD')
-def hasReleaseSigning = [uploadKeystorePath, uploadKeyAlias, uploadKeystorePassword, uploadKeyPassword].every { it }
-
 android {
     compileSdkVersion 36
     namespace "com.ElithX.FitX"
-    signingConfigs {
-        release {
-            if (hasReleaseSigning) {
-                storeFile file(uploadKeystorePath)
-                storePassword uploadKeystorePassword
-                keyAlias uploadKeyAlias
-                keyPassword uploadKeyPassword
-            }
-        }
-    }
     defaultConfig {
         applicationId "com.ElithX.FitX"
         minSdkVersion 21
@@ -169,9 +153,6 @@ android {
     buildTypes {
         release {
             minifyEnabled true
-            if (hasReleaseSigning) {
-                signingConfig signingConfigs.release
-            }
         }
     }
     compileOptions {

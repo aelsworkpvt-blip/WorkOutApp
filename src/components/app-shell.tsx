@@ -32,7 +32,7 @@ export function AppShell({
           <div className="flex items-start justify-between gap-4">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--muted-light)]/78">
-                Forge Motion
+                FitX
               </p>
               <p className="mt-2 text-lg font-[family:var(--font-sora)] text-[#171717]">
                 Mobile-first training flow
@@ -45,6 +45,7 @@ export function AppShell({
               <Link
                 key={item.href}
                 href={item.href}
+                prefetch={false}
                 className="rounded-full border border-black/8 bg-white/65 px-4 py-2 text-sm font-semibold text-[#171717] transition hover:-translate-y-0.5"
               >
                 {item.label}

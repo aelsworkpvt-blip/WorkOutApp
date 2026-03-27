@@ -36,7 +36,7 @@ export function DashboardHero({
     <section id="dashboard" className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
       <div className="panel-dark p-6 sm:p-8">
         <p className="text-sm uppercase tracking-[0.28em] text-white/45">
-          Forge Motion
+          FitX
         </p>
         <h1 className="mt-4 max-w-3xl text-4xl leading-tight font-[family:var(--font-sora)] text-white sm:text-5xl">
           Train with memory, not guesswork.

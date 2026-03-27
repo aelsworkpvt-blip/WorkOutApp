@@ -19,10 +19,10 @@ export function SetupShell({
               href="/split"
               className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--muted-light)]/78"
             >
-              Forge Motion
+              FitX
             </Link>
             <p className="mt-2 text-lg font-[family:var(--font-sora)] text-[#171717]">
-              Setup your split before training starts
+              Muscle-building setup starts here
             </p>
             <LegalLinks className="mt-4" />
           </div>

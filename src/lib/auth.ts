@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { SignJWT, jwtVerify } from "jose";
+import { cache } from "react";
 import { getAuthSecretValue } from "@/lib/env";
 import { requirePrisma } from "@/lib/prisma";
 
@@ -43,7 +44,7 @@ export async function clearSession() {
   });
 }
 
-export async function getSession() {
+export const getSession = cache(async function getSession() {
   const cookieStore = await cookies();
   const token = cookieStore.get(SESSION_COOKIE)?.value;
 
@@ -57,9 +58,9 @@ export async function getSession() {
   } catch {
     return null;
   }
-}
+});
 
-export async function getCurrentViewer() {
+export const getCurrentViewer = cache(async function getCurrentViewer() {
   const session = await getSession();
 
   if (!session?.userId) {
@@ -79,7 +80,7 @@ export async function getCurrentViewer() {
       splitPreference: true,
     },
   });
-}
+});
 
 export async function requireCurrentViewer() {
   const viewer = await getCurrentViewer();

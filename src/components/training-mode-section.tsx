@@ -67,18 +67,19 @@ export function TrainingModeSection() {
           Training mode
         </p>
         <h1 className="mt-4 max-w-3xl text-4xl leading-tight font-[family:var(--font-sora)] text-white sm:text-5xl">
-          Choose the result you want before choosing the split.
+          Choose your training direction before the split.
         </h1>
         <p className="mt-4 max-w-2xl text-sm leading-7 text-white/68 sm:text-base">
-          We are focusing on muscle growth first. Fat loss and body recomposition
-          are planned next, but not implemented yet.
+          Muscle Growth is the live experience right now. Fat Loss and Body
+          Recomposition stay here as visible roadmap modes, but they remain
+          locked until those systems are ready.
         </p>
 
         <div className="mt-8 grid gap-3">
           {[
-            "Muscle Growth is the active mode right now.",
+            "Muscle Growth is the only live path right now.",
             "Once you choose it, the app continues into split selection and onboarding.",
-            "Other modes already exist in the product direction, but they are intentionally locked until the calculations are ready.",
+            "The other two modes stay visible on purpose so the roadmap feels obvious, but they are intentionally locked for now.",
           ].map((item) => (
             <div
               key={item}
@@ -137,7 +138,7 @@ export function TrainingModeSection() {
               key={mode.key}
               type="button"
               onClick={() =>
-                setMessage(`${mode.label} mode is coming soon. For now, continue with Muscle Growth.`)
+                setMessage(`${mode.label} is coming soon. For now, continue with Muscle Growth.`)
               }
               className="panel-light p-6 text-left transition hover:-translate-y-0.5"
             >
@@ -150,7 +151,7 @@ export function TrainingModeSection() {
                 </span>
                 <div>
                   <p className="text-xs uppercase tracking-[0.24em] text-[var(--muted-light)]">
-                    Planned next
+                    Coming soon
                   </p>
                   <h2 className="mt-1 text-3xl font-[family:var(--font-sora)] text-[#191714]">
                     {mode.label}

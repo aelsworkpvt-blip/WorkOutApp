@@ -32,14 +32,15 @@ export function AuthSection({ notice }: { notice?: string | null } = {}) {
     <section className="mx-auto flex min-h-[calc(100vh-2rem)] max-w-md items-center">
       <div className="panel-light w-full p-6 sm:p-7">
         <p className="text-sm uppercase tracking-[0.28em] text-[var(--muted-light)]">
-          Forge Motion
+          FitX
         </p>
         <h1 className="mt-4 text-3xl leading-tight font-[family:var(--font-sora)] text-[#171717] sm:text-4xl">
           Login or create your account.
         </h1>
         <p className="mt-3 text-sm leading-7 text-[var(--muted-light)]">
-          Once you sign in, the app takes you into mode selection, split setup,
-          onboarding, and then your dashboard.
+          Once you sign in, you choose your training mode. Muscle Growth is live
+          right now, while Fat Loss and Body Recomposition stay visible as
+          coming soon before split setup, onboarding, and your dashboard.
         </p>
 
         {notice ? (
