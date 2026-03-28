@@ -1,11 +1,13 @@
 import Link from "next/link";
 import { logoutAction } from "@/app/actions";
+import { GymAlarmManager } from "@/components/gym-alarm-manager";
 import { MobileBottomNav } from "@/components/mobile-bottom-nav";
 import { WelcomeCarousel } from "@/components/welcome-carousel";
 import type { ViewerState } from "@/lib/data";
 
 const appLinks = [
   { href: "/dashboard", label: "Dashboard" },
+  { href: "/history", label: "History" },
   { href: "/workouts", label: "Workout Picker" },
   { href: "/progress", label: "Weekly Progress" },
   { href: "/profile", label: "Profile" },
@@ -13,9 +15,16 @@ const appLinks = [
 
 export function AppShell({
   viewer,
+  alarm,
   children,
 }: {
   viewer: ViewerState;
+  alarm: {
+    userName: string;
+    todayCompleted: boolean;
+    currentStreak: number;
+    workoutHref: string;
+  } | null;
   children: React.ReactNode;
 }) {
   const userName =
@@ -75,6 +84,15 @@ export function AppShell({
 
         {children}
       </div>
+
+      {alarm ? (
+        <GymAlarmManager
+          userName={alarm.userName}
+          todayCompleted={alarm.todayCompleted}
+          currentStreak={alarm.currentStreak}
+          workoutHref={alarm.workoutHref}
+        />
+      ) : null}
 
       <MobileBottomNav />
     </main>

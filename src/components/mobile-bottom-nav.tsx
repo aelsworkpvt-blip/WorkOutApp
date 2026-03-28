@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, Dumbbell, Gauge, UserRound } from "lucide-react";
+import { BarChart3, CalendarDays, Dumbbell, Gauge, UserRound } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const items = [
@@ -15,6 +15,11 @@ const items = [
     href: "/workouts",
     label: "Workout",
     icon: Dumbbell,
+  },
+  {
+    href: "/history",
+    label: "History",
+    icon: CalendarDays,
   },
   {
     href: "/progress",

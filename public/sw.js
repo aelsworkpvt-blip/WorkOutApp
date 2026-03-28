@@ -1,4 +1,4 @@
-const CACHE_NAME = "forge-motion-v1";
+const CACHE_NAME = "forge-motion-v2";
 const OFFLINE_URL = "/offline";
 const STATIC_ASSETS = [
   OFFLINE_URL,
@@ -85,5 +85,32 @@ self.addEventListener("fetch", (event) => {
 
       return cachedResponse || networkResponse;
     }),
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+
+  const targetUrl = event.notification.data?.url || "/workouts";
+  const absoluteTargetUrl = new URL(targetUrl, self.location.origin).href;
+
+  event.waitUntil(
+    self.clients
+      .matchAll({ type: "window", includeUncontrolled: true })
+      .then((clientList) => {
+        for (const client of clientList) {
+          if ("focus" in client) {
+            return client.focus().then(() => {
+              if ("navigate" in client) {
+                return client.navigate(absoluteTargetUrl);
+              }
+
+              return client;
+            });
+          }
+        }
+
+        return self.clients.openWindow(absoluteTargetUrl);
+      }),
   );
 });

@@ -4,7 +4,11 @@ import { useDeferredValue, useEffect, useState } from "react";
 import Link from "next/link";
 import { ChevronRight, Lightbulb, Search, X, Youtube } from "lucide-react";
 import type { WorkoutPageData } from "@/lib/data";
-import { logWorkoutAction } from "@/app/actions";
+import {
+  deleteExerciseLogAction,
+  logWorkoutAction,
+  updateExerciseLogAction,
+} from "@/app/actions";
 import { ExerciseDemoPreview } from "@/components/exercise-demo-preview";
 import { SectionHead } from "@/components/section-head";
 import { SubmitButton } from "@/components/submit-button";
@@ -83,6 +87,14 @@ export function WorkoutSection({
   async function handleLogWorkout(formData: FormData) {
     await logWorkoutAction(formData);
     setSelectedExerciseId(null);
+  }
+
+  async function handleUpdateExerciseLog(formData: FormData) {
+    await updateExerciseLogAction(formData);
+  }
+
+  async function handleDeleteExerciseLog(formData: FormData) {
+    await deleteExerciseLogAction(formData);
   }
 
   return (
@@ -380,6 +392,113 @@ export function WorkoutSection({
               ) : (
                 <p>No history yet. Your first log will create the baseline.</p>
               )}
+            </div>
+
+            <div className="mt-5 rounded-[22px] border border-white/10 bg-[#0f1520] px-4 py-4">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-white/38">
+                    Exercise history
+                  </p>
+                  <p className="mt-2 text-sm leading-7 text-white/64">
+                    Edit or delete old logs for this lift. The latest entries stay right here so progression is obvious.
+                  </p>
+                </div>
+                <div className="rounded-full border border-white/10 px-4 py-2 text-xs uppercase tracking-[0.18em] text-white/52">
+                  {selectedExercise.historyLogs.length} logs
+                </div>
+              </div>
+
+              <div className="mt-4 space-y-3">
+                {selectedExercise.historyLogs.length > 0 ? (
+                  selectedExercise.historyLogs.map((log) => (
+                    <div
+                      key={log.logId}
+                      className="rounded-[20px] border border-white/8 bg-[#111826] px-4 py-4"
+                    >
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                        <div>
+                          <p className="text-sm font-semibold text-white">
+                            {log.performedAtLabel} at {log.timeLabel}
+                          </p>
+                          <p className="mt-1 text-xs uppercase tracking-[0.18em] text-white/40">
+                            {log.setsCompleted} x {log.repsCompleted} @ {log.weightKg}kg
+                          </p>
+                        </div>
+                        <div className="rounded-full border border-white/10 px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-white/46">
+                          Log entry
+                        </div>
+                      </div>
+
+                      <form action={handleUpdateExerciseLog} className="mt-4 space-y-3">
+                        <input type="hidden" name="logId" value={log.logId} />
+                        <div className="grid grid-cols-3 gap-3">
+                          <label className="text-xs uppercase tracking-[0.18em] text-white/45">
+                            Sets
+                            <input
+                              name="setsCompleted"
+                              type="number"
+                              defaultValue={log.setsCompleted}
+                              className="field-dark mt-2"
+                            />
+                          </label>
+                          <label className="text-xs uppercase tracking-[0.18em] text-white/45">
+                            Reps
+                            <input
+                              name="repsCompleted"
+                              type="number"
+                              defaultValue={log.repsCompleted}
+                              className="field-dark mt-2"
+                            />
+                          </label>
+                          <label className="text-xs uppercase tracking-[0.18em] text-white/45">
+                            Kg
+                            <input
+                              name="weightKg"
+                              type="number"
+                              step="0.5"
+                              defaultValue={log.weightKg}
+                              className="field-dark mt-2"
+                            />
+                          </label>
+                        </div>
+                        <label className="block text-xs uppercase tracking-[0.18em] text-white/45">
+                          Notes
+                          <textarea
+                            name="notes"
+                            rows={2}
+                            defaultValue={log.notes ?? ""}
+                            className="field-dark mt-2 min-h-[84px] resize-none"
+                            placeholder="Pump, soreness, technique..."
+                          />
+                        </label>
+                        <div className="flex flex-col gap-3 sm:flex-row">
+                          <SubmitButton
+                            pendingLabel="Saving..."
+                            className="flex-1 bg-[#ffd54f] text-[#151515] hover:bg-[#ffe07a]"
+                          >
+                            Save changes
+                          </SubmitButton>
+                        </div>
+                      </form>
+
+                      <form action={handleDeleteExerciseLog} className="mt-3">
+                        <input type="hidden" name="logId" value={log.logId} />
+                        <SubmitButton
+                          pendingLabel="Deleting..."
+                          className="w-full border border-[#ff6e63]/35 bg-[#2a1518] text-[#ffb7b1] hover:bg-[#381b1f]"
+                        >
+                          Delete log
+                        </SubmitButton>
+                      </form>
+                    </div>
+                  ))
+                ) : (
+                  <div className="rounded-[20px] border border-dashed border-white/8 bg-[#111826] px-4 py-4 text-sm leading-7 text-white/56">
+                    No history yet for this exercise. The first few logs you enter will start building the progression record here.
+                  </div>
+                )}
+              </div>
             </div>
 
             <form action={handleLogWorkout} className="panel-dark-soft mt-5 p-4 sm:p-5">

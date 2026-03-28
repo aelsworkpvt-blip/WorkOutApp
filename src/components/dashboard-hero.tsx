@@ -159,9 +159,20 @@ export function DashboardHero({
             <div className="rounded-[22px] border border-white/8 bg-white/4 p-4">
               <div className="flex items-center gap-2 text-white/55">
                 <HeartPulse className="h-4 w-4 text-[#ff9f68]" />
-                Streak
+                Daily streak
               </div>
-              <p className="mt-3 text-2xl font-semibold text-white">{data.completion.streak}</p>
+              <p className="mt-3 text-2xl font-semibold text-white">
+                {data.completion.streak}d
+              </p>
+              <p className="mt-2 text-sm text-white/58">
+                {data.streak.todayCompleted
+                  ? "Logged today"
+                  : data.streak.canExtendToday
+                    ? "Ready for today's log"
+                    : data.streak.lastLoggedAtLabel
+                      ? "Restart with today's log"
+                      : "First log starts it"}
+              </p>
             </div>
           </div>
         </div>

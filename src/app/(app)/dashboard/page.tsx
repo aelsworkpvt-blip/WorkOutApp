@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { CalendarRange, ChevronRight, Flame, Target, Utensils } from "lucide-react";
 import { DashboardHero } from "@/components/dashboard-hero";
 import { SectionHead } from "@/components/section-head";
+import { StreakSpotlightCard } from "@/components/streak-spotlight-card";
 import { getDashboardSnapshot } from "@/lib/data";
 
 export const dynamic = "force-dynamic";
@@ -18,6 +19,11 @@ export default async function DashboardPage() {
 
   return (
     <div className="grid gap-6">
+      <StreakSpotlightCard
+        streak={dashboard.streak}
+        userName={dashboard.profile.name}
+      />
+
       <DashboardHero data={dashboard} activePlan={todayPlan} />
 
       <section className="grid gap-6 xl:grid-cols-[0.92fr_1.08fr]">

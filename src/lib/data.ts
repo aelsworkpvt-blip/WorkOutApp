@@ -1,4 +1,16 @@
-import { format, startOfWeek, subDays } from "date-fns";
+import {
+  differenceInCalendarDays,
+  eachDayOfInterval,
+  endOfMonth,
+  endOfWeek,
+  format,
+  isToday,
+  isYesterday,
+  startOfDay,
+  startOfMonth,
+  startOfWeek,
+  subDays,
+} from "date-fns";
 import { cache } from "react";
 import type { PrismaClient } from "@prisma/client";
 import { getCurrentViewer } from "@/lib/auth";
@@ -181,6 +193,17 @@ export type DashboardSnapshot = {
         weightKg: number;
         achievedMaxKg: number | null;
       };
+      historyLogs: Array<{
+        logId: string;
+        sessionId: string;
+        performedAtLabel: string;
+        timeLabel: string;
+        setsCompleted: number;
+        repsCompleted: number;
+        weightKg: number;
+        achievedMaxKg: number | null;
+        notes: string | null;
+      }>;
     }>;
   }>;
   todayPlan: {
@@ -215,6 +238,17 @@ export type DashboardSnapshot = {
         weightKg: number;
         achievedMaxKg: number | null;
       };
+      historyLogs: Array<{
+        logId: string;
+        sessionId: string;
+        performedAtLabel: string;
+        timeLabel: string;
+        setsCompleted: number;
+        repsCompleted: number;
+        weightKg: number;
+        achievedMaxKg: number | null;
+        notes: string | null;
+      }>;
     }>;
   };
   completion: {
@@ -224,6 +258,22 @@ export type DashboardSnapshot = {
     streak: number;
     weeklyVolumeKg: number;
     weeklyCaloriesBurned: number;
+  };
+  streak: {
+    current: number;
+    longest: number;
+    completedDaysLast7: number;
+    todayCompleted: boolean;
+    isActive: boolean;
+    canExtendToday: boolean;
+    lastLoggedAtLabel: string | null;
+    week: Array<{
+      dateKey: string;
+      label: string;
+      dayOfMonth: string;
+      completed: boolean;
+      isToday: boolean;
+    }>;
   };
   heroStats: Array<{
     label: string;
@@ -248,6 +298,41 @@ export type DashboardSnapshot = {
     calories: number;
     volume: number;
   }>;
+  last7DayHistory: Array<{
+    dateKey: string;
+    label: string;
+    dayName: string;
+    dayOfMonth: string;
+    completed: boolean;
+    sessionCount: number;
+    totalCalories: number;
+    totalVolumeKg: number;
+    sessions: Array<{
+      id: string;
+      dayName: string;
+      timeLabel: string;
+      calories: number;
+      volume: number;
+    }>;
+  }>;
+  workoutCalendar: {
+    monthLabel: string;
+    weekdays: string[];
+    totalSessions: number;
+    activeDays: number;
+    totalVolumeKg: number;
+    days: Array<{
+      dateKey: string;
+      dayOfMonth: string;
+      label: string;
+      isCurrentMonth: boolean;
+      isToday: boolean;
+      completed: boolean;
+      sessionCount: number;
+      totalCalories: number;
+      totalVolumeKg: number;
+    }>;
+  };
   weeklyDigest: {
     weekLabel: string;
     workoutsCompleted: number;
@@ -263,19 +348,27 @@ export type DashboardSnapshot = {
 type PlanDaySnapshot = DashboardSnapshot["planDays"][number];
 type WorkoutPlanSnapshot = DashboardSnapshot["workoutPlans"][number];
 type CompletionSnapshot = DashboardSnapshot["completion"];
+type StreakSnapshot = DashboardSnapshot["streak"];
 type RecentMeasurementSnapshot = DashboardSnapshot["recentMeasurements"][number];
 type StrengthTrendSnapshot = DashboardSnapshot["strengthTrend"][number];
 type RecentSessionSnapshot = DashboardSnapshot["recentSessions"][number];
+type Last7DayHistorySnapshot = DashboardSnapshot["last7DayHistory"][number];
+type WorkoutCalendarSnapshot = DashboardSnapshot["workoutCalendar"];
 type WeeklyDigestSnapshot = DashboardSnapshot["weeklyDigest"];
 
 export type WorkoutPageData = Pick<
   DashboardSnapshot,
-  "planDays" | "workoutPlans" | "todayPlan" | "weeklyDigest" | "recentSessions"
+  | "planDays"
+  | "workoutPlans"
+  | "todayPlan"
+  | "weeklyDigest"
+  | "recentSessions"
+  | "streak"
 >;
 
 export type ProgressPageData = Pick<
   DashboardSnapshot,
-  "weeklyDigest" | "recentMeasurements" | "strengthTrend"
+  "weeklyDigest" | "recentMeasurements" | "strengthTrend" | "streak"
 > & {
   profile: Pick<DashboardSnapshot["profile"], "currentWeightKg">;
 };
@@ -586,47 +679,110 @@ const buildDatabaseDataset = cache(async function buildDatabaseDataset(
   }
 });
 
-function calculateStreak(sessions: RawSession[]) {
-  const uniqueDays = Array.from(
-    new Set(
-      [...sessions]
-        .sort((left, right) => right.performedAt.getTime() - left.performedAt.getTime())
-        .map((session) => format(session.performedAt, "yyyy-MM-dd")),
-    ),
-  );
+function getDayKey(date: Date) {
+  return format(startOfDay(date), "yyyy-MM-dd");
+}
 
-  let streak = 0;
-  let previousDate: Date | null = null;
+function dayKeyToDate(dayKey: string) {
+  const [year, month, day] = dayKey.split("-").map(Number);
+  return new Date(year, month - 1, day);
+}
 
-  for (const sessionDate of uniqueDays) {
-    const date = new Date(sessionDate);
+function getUniqueSessionDays(sessions: RawSession[]) {
+  return Array.from(
+    new Set(sessions.map((session) => getDayKey(session.performedAt))),
+  )
+    .sort()
+    .map(dayKeyToDate);
+}
 
-    if (!previousDate) {
-      streak += 1;
-      previousDate = date;
-      continue;
+function buildStreakSnapshot(sessions: RawSession[]): StreakSnapshot {
+  const uniqueDays = getUniqueSessionDays(sessions);
+  const dayKeySet = new Set(uniqueDays.map(getDayKey));
+  const today = startOfDay(new Date());
+  const yesterday = subDays(today, 1);
+  const todayKey = getDayKey(today);
+  const yesterdayKey = getDayKey(yesterday);
+  const todayCompleted = dayKeySet.has(todayKey);
+  const canExtendToday = !todayCompleted && dayKeySet.has(yesterdayKey);
+  const isActive = todayCompleted || canExtendToday;
+
+  let current = 0;
+
+  if (isActive) {
+    let cursor = todayCompleted ? today : yesterday;
+
+    while (dayKeySet.has(getDayKey(cursor))) {
+      current += 1;
+      cursor = subDays(cursor, 1);
     }
-
-    const difference = Math.round(
-      (previousDate.getTime() - date.getTime()) / (1000 * 60 * 60 * 24),
-    );
-
-    if (difference <= 3) {
-      streak += 1;
-      previousDate = date;
-      continue;
-    }
-
-    break;
   }
 
-  return streak;
+  let longest = 0;
+  let runningLongest = 0;
+  let previousDay: Date | null = null;
+
+  for (const day of uniqueDays) {
+    runningLongest =
+      previousDay && differenceInCalendarDays(day, previousDay) === 1
+        ? runningLongest + 1
+        : 1;
+    longest = Math.max(longest, runningLongest);
+    previousDay = day;
+  }
+
+  const week = eachDayOfInterval({
+    start: subDays(today, 6),
+    end: today,
+  }).map((day) => {
+    const dateKey = getDayKey(day);
+
+    return {
+      dateKey,
+      label: format(day, "EEE"),
+      dayOfMonth: format(day, "d"),
+      completed: dayKeySet.has(dateKey),
+      isToday: isToday(day),
+    };
+  });
+
+  const lastLoggedDay = uniqueDays.at(-1) ?? null;
+
+  return {
+    current,
+    longest,
+    completedDaysLast7: week.filter((day) => day.completed).length,
+    todayCompleted,
+    isActive,
+    canExtendToday,
+    lastLoggedAtLabel: lastLoggedDay
+      ? isToday(lastLoggedDay)
+        ? "Today"
+        : isYesterday(lastLoggedDay)
+          ? "Yesterday"
+          : format(lastLoggedDay, "dd MMM")
+      : null,
+    week,
+  };
 }
 
 function getSessionsDescending(sessions: RawSession[]) {
   return [...sessions].sort(
     (left, right) => right.performedAt.getTime() - left.performedAt.getTime(),
   );
+}
+
+function groupSessionsByDay(sessions: RawSession[]) {
+  const sessionsByDay = new Map<string, RawSession[]>();
+
+  for (const session of getSessionsDescending(sessions)) {
+    const dayKey = getDayKey(session.performedAt);
+    const daySessions = sessionsByDay.get(dayKey) ?? [];
+    daySessions.push(session);
+    sessionsByDay.set(dayKey, daySessions);
+  }
+
+  return sessionsByDay;
 }
 
 function buildLastLogMap(sessions: RawSession[]) {
@@ -648,6 +804,32 @@ function buildLastLogMap(sessions: RawSession[]) {
   return lastLogMap;
 }
 
+function buildExerciseHistoryMap(sessions: RawSession[]) {
+  const historyMap = new Map<
+    string,
+    Array<
+      RawExerciseLog & {
+        sessionId: string;
+        performedAt: Date;
+      }
+    >
+  >();
+
+  for (const session of getSessionsDescending(sessions)) {
+    for (const log of session.exerciseLogs) {
+      const history = historyMap.get(log.exerciseId) ?? [];
+      history.push({
+        ...log,
+        sessionId: session.id,
+        performedAt: session.performedAt,
+      });
+      historyMap.set(log.exerciseId, history);
+    }
+  }
+
+  return historyMap;
+}
+
 function buildWorkoutPlansSection(
   dayTemplates: RawDayTemplate[],
   sessions: RawSession[],
@@ -659,6 +841,7 @@ function buildWorkoutPlansSection(
   const todayIndex = new Date().getDay() % dayTemplates.length;
   const defaultPlan = dayTemplates[todayIndex];
   const lastLogMap = buildLastLogMap(sessions);
+  const exerciseHistoryMap = buildExerciseHistoryMap(sessions);
 
   const workoutPlans = dayTemplates.map((day) => ({
     id: day.id,
@@ -704,6 +887,17 @@ function buildWorkoutPlansSection(
               achievedMaxKg: lastLog.achievedMaxKg,
             }
           : undefined,
+        historyLogs: (exerciseHistoryMap.get(exercise.id) ?? []).slice(0, 8).map((log) => ({
+          logId: log.id,
+          sessionId: log.sessionId,
+          performedAtLabel: format(log.performedAt, "dd MMM"),
+          timeLabel: format(log.performedAt, "p"),
+          setsCompleted: log.setsCompleted,
+          repsCompleted: log.repsCompleted,
+          weightKg: log.weightKg,
+          achievedMaxKg: log.achievedMaxKg,
+          notes: log.notes ?? null,
+        })),
       };
     }),
   }));
@@ -757,6 +951,7 @@ function buildWeeklyMetrics(sessions: RawSession[], workoutTarget: number) {
 function buildCompletionSnapshot(
   sessions: RawSession[],
   workoutTarget: number,
+  streak: StreakSnapshot,
 ): CompletionSnapshot {
   const metrics = buildWeeklyMetrics(sessions, workoutTarget);
 
@@ -764,7 +959,7 @@ function buildCompletionSnapshot(
     workoutsCompleted: metrics.workoutsCompleted,
     workoutTarget,
     percent: metrics.percent,
-    streak: calculateStreak(sessions),
+    streak: streak.current,
     weeklyVolumeKg: Math.round(metrics.weeklyVolumeKg),
     weeklyCaloriesBurned: metrics.weeklyCaloriesBurned,
   };
@@ -833,10 +1028,105 @@ function buildRecentSessions(sessions: RawSession[]): RecentSessionSnapshot[] {
   }));
 }
 
+function buildLast7DayHistory(sessions: RawSession[]): Last7DayHistorySnapshot[] {
+  const sessionsByDay = groupSessionsByDay(sessions);
+
+  return eachDayOfInterval({
+    start: subDays(startOfDay(new Date()), 6),
+    end: startOfDay(new Date()),
+  })
+    .reverse()
+    .map((day) => {
+      const dateKey = getDayKey(day);
+      const daySessions = sessionsByDay.get(dateKey) ?? [];
+      const totalCalories = daySessions.reduce(
+        (sum, session) => sum + session.estimatedCaloriesBurned,
+        0,
+      );
+      const totalVolumeKg = daySessions.reduce(
+        (sum, session) => sum + session.totalVolumeKg,
+        0,
+      );
+
+      return {
+        dateKey,
+        label: isToday(day)
+          ? "Today"
+          : isYesterday(day)
+            ? "Yesterday"
+            : format(day, "EEE, dd MMM"),
+        dayName: format(day, "EEE"),
+        dayOfMonth: format(day, "d"),
+        completed: daySessions.length > 0,
+        sessionCount: daySessions.length,
+        totalCalories: Math.round(totalCalories),
+        totalVolumeKg: Math.round(totalVolumeKg),
+        sessions: daySessions.map((session) => ({
+          id: session.id,
+          dayName: session.dayName,
+          timeLabel: format(session.performedAt, "p"),
+          calories: session.estimatedCaloriesBurned,
+          volume: Math.round(session.totalVolumeKg),
+        })),
+      };
+    });
+}
+
+function buildWorkoutCalendar(sessions: RawSession[]): WorkoutCalendarSnapshot {
+  const now = new Date();
+  const monthStart = startOfMonth(now);
+  const monthEnd = endOfMonth(now);
+  const calendarStart = startOfWeek(monthStart, { weekStartsOn: 1 });
+  const calendarEnd = endOfWeek(monthEnd, { weekStartsOn: 1 });
+  const sessionsByDay = groupSessionsByDay(sessions);
+  const monthSessions = sessions.filter(
+    (session) => session.performedAt >= monthStart && session.performedAt <= monthEnd,
+  );
+
+  return {
+    monthLabel: format(monthStart, "MMMM yyyy"),
+    weekdays: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+    totalSessions: monthSessions.length,
+    activeDays: new Set(monthSessions.map((session) => getDayKey(session.performedAt))).size,
+    totalVolumeKg: Math.round(
+      monthSessions.reduce((sum, session) => sum + session.totalVolumeKg, 0),
+    ),
+    days: eachDayOfInterval({
+      start: calendarStart,
+      end: calendarEnd,
+    }).map((day) => {
+      const dateKey = getDayKey(day);
+      const daySessions = sessionsByDay.get(dateKey) ?? [];
+      const totalCalories = daySessions.reduce(
+        (sum, session) => sum + session.estimatedCaloriesBurned,
+        0,
+      );
+      const totalVolumeKg = daySessions.reduce(
+        (sum, session) => sum + session.totalVolumeKg,
+        0,
+      );
+
+      return {
+        dateKey,
+        dayOfMonth: format(day, "d"),
+        label: format(day, "EEE, dd MMM"),
+        isCurrentMonth: day.getMonth() === monthStart.getMonth(),
+        isToday: isToday(day),
+        completed: daySessions.length > 0,
+        sessionCount: daySessions.length,
+        totalCalories: Math.round(totalCalories),
+        totalVolumeKg: Math.round(totalVolumeKg),
+      };
+    }),
+  };
+}
+
 function buildSnapshot(dataset: RawDataset, isDemoMode: boolean): DashboardSnapshot {
+  const streak = buildStreakSnapshot(dataset.sessions);
   const completion = buildCompletionSnapshot(
     dataset.sessions,
     dataset.goal.weeklyWorkoutTarget,
+    streak,
   );
   const { planDays, workoutPlans, todayPlan } = buildWorkoutPlansSection(
     dataset.dayTemplates,
@@ -850,6 +1140,8 @@ function buildSnapshot(dataset: RawDataset, isDemoMode: boolean): DashboardSnaps
   const recentMeasurements = buildRecentMeasurements(dataset.measurements);
   const strengthTrend = buildStrengthTrend(dataset.sessions);
   const recentSessions = buildRecentSessions(dataset.sessions);
+  const last7DayHistory = buildLast7DayHistory(dataset.sessions);
+  const workoutCalendar = buildWorkoutCalendar(dataset.sessions);
   const measurements = [...dataset.measurements].sort(
     (left, right) => left.recordedAt.getTime() - right.recordedAt.getTime(),
   );
@@ -863,7 +1155,9 @@ function buildSnapshot(dataset: RawDataset, isDemoMode: boolean): DashboardSnaps
 
   const strongestExercise = todayPlan.exercises.find((exercise) => exercise.lastLog);
   const insights = [
-    `${dataset.user.name.split(" ")[0]}, your weekly pace is ${completion.percent}% of target and your streak is ${completion.streak} sessions deep.`,
+    streak.current > 0
+      ? `${dataset.user.name.split(" ")[0]}, your weekly pace is ${completion.percent}% of target and your daily streak is ${streak.current} day${streak.current === 1 ? "" : "s"} strong.`
+      : `${dataset.user.name.split(" ")[0]}, your weekly pace is ${completion.percent}% of target. Log today to light up a new daily streak.`,
     `Bodyweight is ${formatSigned(weightDelta)} kg since ${format(firstMeasurement.recordedAt, "dd MMM")} while waist is ${formatSigned(waistDelta)} cm.`,
     strongestExercise?.lastLog
       ? `${strongestExercise.name} is primed for ${
@@ -885,6 +1179,7 @@ function buildSnapshot(dataset: RawDataset, isDemoMode: boolean): DashboardSnaps
       ...todayPlan,
     },
     completion,
+    streak,
     heroStats: [
       {
         label: "Weekly drive",
@@ -910,6 +1205,8 @@ function buildSnapshot(dataset: RawDataset, isDemoMode: boolean): DashboardSnaps
     recentMeasurements,
     strengthTrend,
     recentSessions,
+    last7DayHistory,
+    workoutCalendar,
     weeklyDigest,
     insights,
   };
@@ -1050,6 +1347,7 @@ export const getWorkoutPageData = cache(
         planDays,
         workoutPlans,
         todayPlan,
+        streak: buildStreakSnapshot(rawSessions),
         weeklyDigest: buildWeeklyDigestSnapshot(
           rawDigests,
           rawSessions,
@@ -1080,7 +1378,7 @@ export const getProgressPageData = cache(
       const db = requirePrisma();
       const recentWindow = subDays(new Date(), 7);
 
-      const [user, measurements, digests, strengthSessions, weeklySessions] =
+      const [user, measurements, digests, strengthSessions, weeklySessions, streakSessions] =
         await Promise.all([
           db.user.findUnique({
             where: { id: viewer.id },
@@ -1139,6 +1437,14 @@ export const getProgressPageData = cache(
               totalVolumeKg: true,
             },
           }),
+          db.workoutSession.findMany({
+            where: { userId: viewer.id },
+            orderBy: { performedAt: "asc" },
+            select: {
+              id: true,
+              performedAt: true,
+            },
+          }),
         ]);
 
       if (!user?.goal || user.currentWeightKg === null) {
@@ -1194,6 +1500,17 @@ export const getProgressPageData = cache(
         exerciseLogs: [],
       }));
 
+      const rawStreakSessions: RawSession[] = streakSessions.map((session) => ({
+        id: session.id,
+        dayTemplateId: "",
+        dayName: "",
+        performedAt: session.performedAt,
+        durationMin: 0,
+        estimatedCaloriesBurned: 0,
+        totalVolumeKg: 0,
+        exerciseLogs: [],
+      }));
+
       const rawDigests: RawDigest[] = digests.map((digest) => ({
         weekStart: digest.weekStart,
         workoutsCompleted: digest.workoutsCompleted,
@@ -1210,6 +1527,7 @@ export const getProgressPageData = cache(
         },
         recentMeasurements,
         strengthTrend: buildStrengthTrend(rawStrengthSessions),
+        streak: buildStreakSnapshot(rawStreakSessions),
         weeklyDigest: buildWeeklyDigestSnapshot(
           rawDigests,
           rawWeeklySessions,

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { compare, hash } from "bcryptjs";
+import type { PrismaClient } from "@prisma/client";
 import { z } from "zod";
 import { calculateNutritionTargets, calculateVolume, estimateWorkoutCalories } from "@/lib/calculations";
 import { demoProfile } from "@/lib/app-fixture";
@@ -92,6 +93,18 @@ const workoutLogSchema = z.object({
   notes: z.string().trim().max(140).optional(),
 });
 
+const updateExerciseLogSchema = z.object({
+  logId: z.string().min(1),
+  setsCompleted: z.number().int().min(1).max(12),
+  repsCompleted: z.number().int().min(1).max(30),
+  weightKg: z.number().min(0).max(400),
+  notes: z.string().trim().max(140).nullable(),
+});
+
+const deleteExerciseLogSchema = z.object({
+  logId: z.string().min(1),
+});
+
 function requiredString(value: FormDataEntryValue | null) {
   return `${value ?? ""}`.trim();
 }
@@ -172,6 +185,57 @@ async function requireSessionUser() {
     ...viewer,
     email: viewer.email,
   };
+}
+
+function revalidateWorkoutViews() {
+  revalidatePath("/");
+  revalidatePath("/dashboard");
+  revalidatePath("/workouts");
+  revalidatePath("/progress");
+  revalidatePath("/profile");
+  revalidatePath("/streak");
+}
+
+async function refreshWorkoutSessionAggregates(
+  db: PrismaClient,
+  sessionId: string,
+  bodyWeightKg: number,
+) {
+  const exerciseLogs = await db.exerciseLog.findMany({
+    where: { sessionId },
+  });
+
+  if (exerciseLogs.length === 0) {
+    await db.workoutSession.delete({
+      where: { id: sessionId },
+    });
+    return;
+  }
+
+  const totalVolumeKg = exerciseLogs.reduce(
+    (total, log) =>
+      total +
+      calculateVolume({
+        setsCompleted: log.setsCompleted,
+        repsCompleted: log.repsCompleted,
+        weightKg: log.weightKg,
+      }),
+    0,
+  );
+  const durationMin = Math.max(35, exerciseLogs.length * 11);
+  const estimatedCaloriesBurned = estimateWorkoutCalories({
+    bodyWeightKg,
+    durationMin,
+  });
+
+  await db.workoutSession.update({
+    where: { id: sessionId },
+    data: {
+      durationMin,
+      totalVolumeKg,
+      estimatedCaloriesBurned,
+    },
+  });
 }
 
 export async function signUpAction(formData: FormData): Promise<AuthActionResult> {
@@ -667,34 +731,131 @@ export async function logWorkoutAction(formData: FormData) {
     },
   });
 
-  const exerciseLogs = await db.exerciseLog.findMany({
-    where: { sessionId: session.id },
-  });
-
-  const totalVolumeKg = exerciseLogs.reduce(
-    (total, log) =>
-      total +
-      calculateVolume({
-        setsCompleted: log.setsCompleted,
-        repsCompleted: log.repsCompleted,
-        weightKg: log.weightKg,
-      }),
-    0,
+  await refreshWorkoutSessionAggregates(
+    db,
+    session.id,
+    user.currentWeightKg ?? demoProfile.currentWeightKg,
   );
-  const durationMin = Math.max(35, exerciseLogs.length * 11);
-  const estimatedCaloriesBurned = estimateWorkoutCalories({
-    bodyWeightKg: user.currentWeightKg ?? demoProfile.currentWeightKg,
-    durationMin,
+
+  revalidateWorkoutViews();
+}
+
+export async function updateExerciseLogAction(formData: FormData) {
+  if (!hasUsableDatabaseUrl) {
+    revalidateWorkoutViews();
+    return;
+  }
+
+  const parsed = updateExerciseLogSchema.safeParse({
+    logId: requiredString(formData.get("logId")),
+    setsCompleted: requiredNumber(formData.get("setsCompleted")),
+    repsCompleted: requiredNumber(formData.get("repsCompleted")),
+    weightKg: requiredNumber(formData.get("weightKg")),
+    notes: requiredString(formData.get("notes")) || null,
   });
 
-  await db.workoutSession.update({
-    where: { id: session.id },
+  if (!parsed.success) {
+    console.error("Invalid exercise log update payload", parsed.error.flatten());
+    throw new Error("Invalid exercise log update.");
+  }
+
+  const viewer = await requireSessionUser();
+  const db = requirePrisma();
+
+  const [user, existingLog] = await Promise.all([
+    db.user.findUnique({
+      where: { id: viewer.id },
+      select: {
+        currentWeightKg: true,
+      },
+    }),
+    db.exerciseLog.findUnique({
+      where: { id: parsed.data.logId },
+      select: {
+        id: true,
+        sessionId: true,
+        session: {
+          select: {
+            userId: true,
+          },
+        },
+      },
+    }),
+  ]);
+
+  if (!existingLog || existingLog.session.userId !== viewer.id) {
+    throw new Error("Exercise log not found.");
+  }
+
+  await db.exerciseLog.update({
+    where: { id: existingLog.id },
     data: {
-      durationMin,
-      totalVolumeKg,
-      estimatedCaloriesBurned,
+      setsCompleted: parsed.data.setsCompleted,
+      repsCompleted: parsed.data.repsCompleted,
+      weightKg: parsed.data.weightKg,
+      achievedMaxKg: parsed.data.weightKg,
+      notes: parsed.data.notes,
     },
   });
 
-  revalidatePath("/");
+  await refreshWorkoutSessionAggregates(
+    db,
+    existingLog.sessionId,
+    user?.currentWeightKg ?? demoProfile.currentWeightKg,
+  );
+
+  revalidateWorkoutViews();
+}
+
+export async function deleteExerciseLogAction(formData: FormData) {
+  if (!hasUsableDatabaseUrl) {
+    revalidateWorkoutViews();
+    return;
+  }
+
+  const parsed = deleteExerciseLogSchema.safeParse({
+    logId: requiredString(formData.get("logId")),
+  });
+
+  if (!parsed.success) {
+    console.error("Invalid exercise log delete payload", parsed.error.flatten());
+    throw new Error("Invalid exercise log delete.");
+  }
+
+  const viewer = await requireSessionUser();
+  const db = requirePrisma();
+  const user = await db.user.findUnique({
+    where: { id: viewer.id },
+    select: {
+      currentWeightKg: true,
+    },
+  });
+  const existingLog = await db.exerciseLog.findUnique({
+    where: { id: parsed.data.logId },
+    select: {
+      id: true,
+      sessionId: true,
+      session: {
+        select: {
+          userId: true,
+        },
+      },
+    },
+  });
+
+  if (!existingLog || existingLog.session.userId !== viewer.id) {
+    throw new Error("Exercise log not found.");
+  }
+
+  await db.exerciseLog.delete({
+    where: { id: existingLog.id },
+  });
+
+  await refreshWorkoutSessionAggregates(
+    db,
+    existingLog.sessionId,
+    user?.currentWeightKg ?? demoProfile.currentWeightKg,
+  );
+
+  revalidateWorkoutViews();
 }
